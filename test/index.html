@@ -1,0 +1,99 @@
+<!doctype html>
+<!--
+Copyright 2018 The Go Authors. All rights reserved.
+Use of this source code is governed by a BSD-style
+license that can be found in the LICENSE file.
+-->
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<title>Go wasm</title>
+	<style>
+		@font-face {
+			font-family: 'Space Mono';
+			font-style: normal;
+			font-weight: 400;
+			src: local('Space Mono'), local('SpaceMono-Regular'), url(https://fonts.gstatic.com/s/spacemono/v1/Hd9kwbkpFTcHMXxP8FyUPwsYbbCjybiHxArTLjt7FRU.woff2) format('woff2');
+			unicode-range: U+0102-0103, U+1EA0-1EF9, U+20AB;
+		}
+
+		@font-face {
+			font-family: 'Space Mono';
+			font-style: normal;
+			font-weight: 400;
+			src: local('Space Mono'), local('SpaceMono-Regular'), url(https://fonts.gstatic.com/s/spacemono/v1/L1KCByOyogPfEIepxkwC2AsYbbCjybiHxArTLjt7FRU.woff2) format('woff2');
+			unicode-range: U+0100-024F, U+1E00-1EFF, U+20A0-20AB, U+20AD-20CF, U+2C60-2C7F, U+A720-A7FF;
+		}
+
+		@font-face {
+			font-family: 'Space Mono';
+			font-style: normal;
+			font-weight: 400;
+			src: local('Space Mono'), local('SpaceMono-Regular'), url(https://fonts.gstatic.com/s/spacemono/v1/adVweg3BJhE6r8jYmXseHQzyDMXhdD8sAj6OAJTFsBI.woff2) format('woff2');
+			unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2212, U+2215;
+		}
+
+		@font-face {
+			font-family: 'Space Mono';
+			font-style: normal;
+			font-weight: 700;
+			src: local('Space Mono Bold'), local('SpaceMono-Bold'), url(https://fonts.gstatic.com/s/spacemono/v1/vdpMRWfyjfCvDYTz00NEPHv4bDVR720piddN5sbmjzs.woff2) format('woff2');
+			unicode-range: U+0102-0103, U+1EA0-1EF9, U+20AB;
+		}
+
+		@font-face {
+			font-family: 'Space Mono';
+			font-style: normal;
+			font-weight: 700;
+			src: local('Space Mono Bold'), local('SpaceMono-Bold'), url(https://fonts.gstatic.com/s/spacemono/v1/vdpMRWfyjfCvDYTz00NEPDrEaqfC9P2pvLXik1Kbr9s.woff2) format('woff2');
+			unicode-range: U+0100-024F, U+1E00-1EFF, U+20A0-20AB, U+20AD-20CF, U+2C60-2C7F, U+A720-A7FF;
+		}
+
+		@font-face {
+			font-family: 'Space Mono';
+			font-style: normal;
+			font-weight: 700;
+			src: local('Space Mono Bold'), local('SpaceMono-Bold'), url(https://fonts.gstatic.com/s/spacemono/v1/vdpMRWfyjfCvDYTz00NEPGaVI6zN22yiurzcBKxPjFE.woff2) format('woff2');
+			unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2212, U+2215;
+		}
+
+		*{box-sizing:border-box;} html.body--overlay,body.body--overlay{overflow:hidden;} body{font-size:16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Oxygen','Ubuntu','Cantarell','Fira Sans','Droid Sans','Helvetica Neue',Helvetica,Arial,sans-serif,'Apple Color Emoji';line-height:1.5;margin:0;-webkit-font-smoothing:antialiased;} #app{background-color:#fff;} button{-webkit-appearance:none;-moz-appearance:none;appearance:none;background:none;border:none;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto','Oxygen','Ubuntu','Cantarell','Fira Sans','Droid Sans','Helvetica Neue',Helvetica,Arial,sans-serif,'Apple Color Emoji';font-size:16px;margin:0;padding:0;} button:focus{outline:none;} hr{border:0;border-bottom:1px solid #C4C7CA;margin:1rem auto;} code{font-family:'Space Mono','Consolas','Menlo','Monaco','Lucida Console','Liberation Mono','DejaVu Sans Mono','Bitstream Vera Sans Mono','Courier New','monospace','sans-serif';}
+	</style>
+</head>
+
+<body>
+	<!--
+	Add the following polyfill for Microsoft Edge 17/18 support:
+	<script src="https://cdn.jsdelivr.net/npm/text-encoding@0.7.0/lib/encoding.min.js"></script>
+	(see https://caniuse.com/#feat=textencoder)
+	-->
+	<script src="index.js"></script>
+	<script>
+		if (!WebAssembly.instantiateStreaming) { // polyfill
+			WebAssembly.instantiateStreaming = async (resp, importObject) => {
+				const source = await (await resp).arrayBuffer();
+				return await WebAssembly.instantiate(source, importObject);
+			};
+		}
+
+		const go = new Go();
+		let mod, inst;
+		WebAssembly.instantiateStreaming(fetch("./main.wasm"), go.importObject).then((result) => {
+			mod = result.module;
+			inst = result.instance;
+
+			run();
+		});
+
+		async function run() {
+			console.clear();
+			await go.run(inst);
+			inst = await WebAssembly.instantiate(mod, go.importObject); // reset instance
+		}
+	</script>
+
+	<div id="app"></div>
+</body>
+
+</html>
