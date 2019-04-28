@@ -3,6 +3,7 @@ package go_lander
 import (
 	"math/rand"
 	"strings"
+	"syscall/js"
 	"time"
 )
 
@@ -63,6 +64,30 @@ func walkTree(currentNode Node, callback func(Node) error) error {
 	}
 
 	return nil
+}
+
+func newHTMLElement(document js.Value, currentElement *HtmlNode) js.Value {
+	var domElement js.Value
+	if currentElement.namespace != "" {
+		domElement = document.Call("createElementNS", currentElement.namespace, currentElement.Tag)
+	} else {
+		domElement = document.Call("createElement", currentElement.Tag)
+	}
+
+	for key, value := range currentElement.Attributes {
+		domElement.Call("setAttribute", key, value)
+	}
+
+	classList := domElement.Get("classList")
+	for _, value := range currentElement.Classes {
+		classList.Call("add", value)
+	}
+
+	if currentElement.DomID != "" {
+		domElement.Set("id", currentElement.DomID)
+	}
+
+	return domElement
 }
 
 const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"

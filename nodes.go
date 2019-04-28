@@ -3,13 +3,12 @@ package go_lander
 import (
 	"fmt"
 	"strings"
-	js "syscall/js"
+	"syscall/js"
 )
 
-type HashID string
-
 type Node interface {
-	Create() error
+	ID() uint64
+	Create(uint64) error
 	Mount(js.Value) error
 	Position(parent, next, prev Node) error
 	Update(map[string]string) error
@@ -17,24 +16,85 @@ type Node interface {
 	Render() error
 	ToString() string
 	GetChildren() []Node
+	InsertChildren(Node, int) error
+	ReplaceChildren(old, new Node) error
+	RemoveChildren(Node) error
 	Clone() Node
+}
+
+type baseNode struct {
+	id uint64
+
+	Parent, NextSibling, PreviousSibling Node
+}
+
+func (n *baseNode) ID() uint64 {
+	return n.id
+}
+
+func (n *baseNode) Create(id uint64) error {
+	n.id = id
+	return nil
+}
+
+func (n *baseNode) Mount(newNode js.Value) error {
+	return nil
+}
+
+func (n *baseNode) Position(parent, next, prev Node) error {
+	n.Parent = parent
+	n.NextSibling = next
+	n.PreviousSibling = prev
+	return nil
+}
+
+func (n *baseNode) Update(newAttributes map[string]string) error {
+	return nil
+}
+
+func (n *baseNode) Remove() error {
+	return nil
+}
+
+func (n *baseNode) Render() error {
+	return nil
+}
+
+func (n *baseNode) ToString() string {
+	return ""
+}
+
+func (n *baseNode) GetChildren() []Node {
+	return []Node{}
+}
+
+func (n *baseNode) InsertChildren(node Node, position int) error {
+	return nil
+}
+
+func (n *baseNode) ReplaceChildren(old, new Node) error {
+	return nil
+}
+
+func (n *baseNode) RemoveChildren(node Node) error {
+	return nil
 }
 
 type FunctionComponent func(attributes map[string]string, children []Node) []Node
 
 type HtmlNode struct {
-	id          HashID
+	baseNode
+
 	domNode     js.Value
 	namespace   string
 	activeClass string
 
-	DomID                                string
-	Tag                                  string
-	Classes                              []string
-	Attributes                           map[string]string
-	Children                             []Node
-	Parent, NextSibling, PreviousSibling Node
-	Styles                               []string
+	DomID      string
+	Tag        string
+	Classes    []string
+	Attributes map[string]string
+	Children   []Node
+	Styles     []string
 }
 
 func newHtmlNode(tag, id string, classes []string, attributes map[string]string, children []Node) *HtmlNode {
@@ -47,19 +107,8 @@ func newHtmlNode(tag, id string, classes []string, attributes map[string]string,
 	}
 }
 
-func (n *HtmlNode) Create() error {
-	return nil
-}
-
 func (n *HtmlNode) Mount(newNode js.Value) error {
 	n.domNode = newNode
-	return nil
-}
-
-func (n *HtmlNode) Position(parent, next, prev Node) error {
-	n.Parent = parent
-	n.NextSibling = next
-	n.PreviousSibling = prev
 	return nil
 }
 
@@ -81,10 +130,6 @@ func (n *HtmlNode) Update(newAttributes map[string]string) error {
 
 func (n *HtmlNode) Remove() error {
 	n.domNode = js.Value{}
-	return nil
-}
-
-func (n *HtmlNode) Render() error {
 	return nil
 }
 
@@ -114,17 +159,88 @@ func (n *HtmlNode) GetChildren() []Node {
 	return n.Children
 }
 
+func (n *HtmlNode) InsertChildren(node Node, position int) error {
+	// Insert at the end on a -1
+	if position < 0 {
+		n.Children = append(n.Children, node)
+	}
+
+	newChildren := make([]Node, len(n.Children)+1)
+	index := 0
+	for _, child := range n.Children {
+		if index == position {
+			newChildren[index] = node
+			index++
+		} else {
+			newChildren[index] = child
+		}
+		index++
+	}
+
+	n.Children = newChildren
+
+	return nil
+}
+
+func (n *HtmlNode) ReplaceChildren(old, new Node) error {
+	for index, child := range n.Children {
+		if child == old {
+			n.Children[index] = new
+			break
+		}
+	}
+	return nil
+}
+
+func (n *HtmlNode) RemoveChildren(node Node) error {
+	newChildren := make([]Node, len(n.Children)-1)
+	index := 0
+	for _, child := range n.Children {
+		if child == node {
+			continue
+		}
+		newChildren[index] = child
+		index++
+	}
+
+	n.Children = newChildren
+
+	return nil
+}
+
 func (n *HtmlNode) Clone() Node {
+	clonedAttrs := make(map[string]string, len(n.Attributes))
+	for key, value := range n.Attributes {
+		clonedAttrs[key] = value
+	}
+
+	clonedChildren := make([]Node, len(n.Children))
+	for index, child := range n.Children {
+		clonedChildren[index] = child
+	}
+
+	clonedClasses := make([]string, len(n.Classes))
+	for index, val := range n.Classes {
+		clonedClasses[index] = val
+	}
+
+	clonedStyles := make([]string, len(n.Styles))
+	for index, val := range n.Styles {
+		clonedStyles[index] = val
+	}
+
 	return &HtmlNode{
-		id:         n.id,
+		baseNode: baseNode{
+			id: n.id,
+		},
 		domNode:    n.domNode,
 		namespace:  n.namespace,
 		Tag:        n.Tag,
 		DomID:      n.DomID,
-		Attributes: n.Attributes,
-		Classes:    n.Classes,
-		Children:   n.Children,
-		Styles:     n.Styles,
+		Attributes: clonedAttrs,
+		Classes:    clonedClasses,
+		Children:   clonedChildren,
+		Styles:     clonedStyles,
 	}
 }
 
@@ -144,11 +260,11 @@ func (n *HtmlNode) SelectorStyle(selector, styling string) *HtmlNode {
 }
 
 type TextNode struct {
-	id      HashID
+	baseNode
+
 	domNode js.Value
 
-	Text                                 string
-	Parent, NextSibling, PreviousSibling Node
+	Text string
 }
 
 func newTextNode(text string) *TextNode {
@@ -157,19 +273,8 @@ func newTextNode(text string) *TextNode {
 	}
 }
 
-func (n *TextNode) Create() error {
-	return nil
-}
-
 func (n *TextNode) Mount(newNode js.Value) error {
 	n.domNode = newNode
-	return nil
-}
-
-func (n *TextNode) Position(parent, next, prev Node) error {
-	n.Parent = parent
-	n.NextSibling = next
-	n.PreviousSibling = prev
 	return nil
 }
 
@@ -185,64 +290,30 @@ func (n *TextNode) Remove() error {
 	return nil
 }
 
-func (n *TextNode) Render() error {
-	return nil
-}
-
 func (n *TextNode) ToString() string {
 	return n.Text
 }
 
-func (n *TextNode) GetChildren() []Node {
-	return []Node{}
-}
-
 func (n *TextNode) Clone() Node {
 	return &TextNode{
-		id:      n.id,
+		baseNode: baseNode{
+			id: n.id,
+		},
 		domNode: n.domNode,
 		Text:    n.Text,
 	}
 }
 
 type FragmentNode struct {
-	id HashID
+	baseNode
 
-	Children                             []Node
-	Parent, NextSibling, PreviousSibling Node
+	Children []Node
 }
 
 func newFragmentNode(children []Node) *FragmentNode {
 	return &FragmentNode{
 		Children: children,
 	}
-}
-
-func (n *FragmentNode) Create() error {
-	return nil
-}
-
-func (n *FragmentNode) Mount(newNode js.Value) error {
-	return nil
-}
-
-func (n *FragmentNode) Position(parent, next, prev Node) error {
-	n.Parent = parent
-	n.NextSibling = next
-	n.PreviousSibling = prev
-	return nil
-}
-
-func (n *FragmentNode) Update(newAttributes map[string]string) error {
-	return nil
-}
-
-func (n *FragmentNode) Remove() error {
-	return nil
-}
-
-func (n *FragmentNode) Render() error {
-	return nil
 }
 
 func (n *FragmentNode) ToString() string {
@@ -257,21 +328,77 @@ func (n *FragmentNode) GetChildren() []Node {
 	return n.Children
 }
 
+func (n *FragmentNode) InsertChildren(node Node, position int) error {
+	// Insert at the end on a -1
+	if position < 0 {
+		n.Children = append(n.Children, node)
+	}
+
+	newChildren := make([]Node, len(n.Children)+1)
+	index := 0
+	for _, child := range n.Children {
+		if index == position {
+			newChildren[index] = node
+			index++
+		} else {
+			newChildren[index] = child
+		}
+		index++
+	}
+
+	n.Children = newChildren
+
+	return nil
+}
+
+func (n *FragmentNode) ReplaceChildren(old, new Node) error {
+	for index, child := range n.Children {
+		if child == old {
+			n.Children[index] = new
+			break
+		}
+	}
+	return nil
+}
+
+func (n *FragmentNode) RemoveChildren(node Node) error {
+	newChildren := make([]Node, len(n.Children)-1)
+	index := 0
+	for _, child := range n.Children {
+		if child == node {
+			continue
+		}
+		newChildren[index] = child
+		index++
+	}
+
+	n.Children = newChildren
+
+	return nil
+}
+
 func (n *FragmentNode) Clone() Node {
+	clonedChildren := make([]Node, len(n.Children))
+	for index, child := range n.Children {
+		clonedChildren[index] = child
+	}
+
 	return &FragmentNode{
-		id:       n.id,
-		Children: n.Children,
+		baseNode: baseNode{
+			id: n.id,
+		},
+		Children: clonedChildren,
 	}
 }
 
 type FuncNode struct {
-	id            HashID
+	baseNode
+
 	factory       FunctionComponent
 	givenChildren []Node
 
-	Attributes                           map[string]string
-	Children                             []Node
-	Parent, NextSibling, PreviousSibling Node
+	Attributes map[string]string
+	Children   []Node
 }
 
 func newFuncNode(factory FunctionComponent, attributes map[string]string, givenChildren []Node) *FuncNode {
@@ -282,27 +409,8 @@ func newFuncNode(factory FunctionComponent, attributes map[string]string, givenC
 	}
 }
 
-func (n *FuncNode) Create() error {
-	return nil
-}
-
-func (n *FuncNode) Mount(newNode js.Value) error {
-	return nil
-}
-
-func (n *FuncNode) Position(parent, next, prev Node) error {
-	n.Parent = parent
-	n.NextSibling = next
-	n.PreviousSibling = prev
-	return nil
-}
-
 func (n *FuncNode) Update(newAttributes map[string]string) error {
 	n.Attributes = mergeAttributes(n.Attributes, newAttributes)
-	return nil
-}
-
-func (n *FuncNode) Remove() error {
 	return nil
 }
 
@@ -324,9 +432,21 @@ func (n *FuncNode) GetChildren() []Node {
 }
 
 func (n *FuncNode) Clone() Node {
+	clonedAttrs := make(map[string]string, len(n.Attributes))
+	for key, value := range n.Attributes {
+		clonedAttrs[key] = value
+	}
+
+	clonedChildren := make([]Node, len(n.Children))
+	for index, child := range n.Children {
+		clonedChildren[index] = child
+	}
+
 	return &FuncNode{
-		id:         n.id,
-		Attributes: n.Attributes,
-		Children:   n.Children,
+		baseNode: baseNode{
+			id: n.id,
+		},
+		Attributes: clonedAttrs,
+		Children:   clonedChildren,
 	}
 }
