@@ -20,6 +20,7 @@ func hashNode(node Node) uint64 {
 			stringToHash += fmt.Sprintf(`[%s="%s"]`, key, value)
 		}
 
+		stringToHash += fmt.Sprintf(`[tag="%s"]`, typedNode.Tag)
 		stringToHash += fmt.Sprintf(`[id="%s"]`, typedNode.DomID)
 		stringToHash += fmt.Sprintf(`[class="%s"]`, strings.Join(typedNode.Classes, " "))
 		stringToHash += fmt.Sprintf(`[children="%d"]`, len(typedNode.Children))

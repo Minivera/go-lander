@@ -1,21 +1,36 @@
 package go_lander
 
 import (
+	"fmt"
 	"math/rand"
 	"strings"
 	"syscall/js"
 	"time"
 )
 
-func mergeAttributes(a1, a2 map[string]string) map[string]string {
-	for key, _ := range a2 {
-		if val, ok := a2[key]; ok {
-			a1[key] = val
-		} else {
-			delete(a1, key)
+func extractAttributes(attributes map[string]interface{}) (map[string]string, map[string]EventListener, error) {
+	attrs := make(map[string]string, 32)
+	events := make(map[string]EventListener, 32)
+
+	for key, value := range attributes {
+		switch casted := value.(type) {
+		case string:
+			attrs[key] = casted
+		case int:
+			attrs[key] = string(casted)
+		case bool:
+			// Bool attributes only adds the attribute if true, like required=""
+			if casted {
+				attrs[key] = ""
+			}
+		case EventListener:
+			events[key] = casted
+		default:
+			return nil, nil, fmt.Errorf("attributes only support vars of type string, bool, int or EventListener, %T received", value)
 		}
 	}
-	return a1
+
+	return attrs, events, nil
 }
 
 func hyperscript(tag string) (string, string, []string) {

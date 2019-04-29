@@ -25,7 +25,7 @@ func newPatchText(parent js.Value, old Node, text string) patch {
 }
 
 func (p *patchText) execute(document js.Value) error {
-	err := p.oldNode.Update(map[string]string{
+	err := p.oldNode.Update(map[string]interface{}{
 		"text": p.newText,
 	})
 	if err != nil {
@@ -60,18 +60,26 @@ func newPatchHtml(old, new Node) patch {
 }
 
 func (p *patchHtml) execute(_ js.Value) error {
-	oldHtml, ok := p.oldNode.(*HtmlNode)
+	newHtml, ok := p.newNode.(*HtmlNode)
 	if !ok {
 		return fmt.Errorf("old node was not of type HtmlNode, %T given instead", p.oldNode)
 	}
 
-	err := p.oldNode.Update(mergeAttributes(
-		oldHtml.Attributes,
-		map[string]string{
-			"id":    oldHtml.DomID,
-			"class": strings.Join(oldHtml.Classes, " "),
-		},
-	))
+	// TODO: Find a way to bind new event listeners
+	newAttributes := make(map[string]interface{}, len(newHtml.Attributes)+len(newHtml.EventListeners)+2)
+	for key, value := range newHtml.Attributes {
+		newAttributes[key] = value
+	}
+
+	// TODO: Fix the memory leak here when a node is removed, but not its event listeners
+	for key, value := range newHtml.EventListeners {
+		newAttributes[key] = value
+	}
+
+	newAttributes["id"] = newHtml.DomID
+	newAttributes["class"] = strings.Join(newHtml.Classes, " ")
+
+	err := p.oldNode.Update(newAttributes)
 	if err != nil {
 		return err
 	}
@@ -93,16 +101,24 @@ func newPatchInsert(parentElem js.Value, parent, new Node) patch {
 }
 
 func (p *patchInsert) execute(document js.Value) error {
+	println("inserting children")
 	err := p.parent.InsertChildren(p.newNode, -1)
 	if err != nil {
+		println(err)
 		return err
 	}
+	println("children inserted")
+
+	println(fmt.Sprintf("parent node: %# v", p.parent))
+	println(fmt.Sprintf("new node: %# v", p.newNode))
 
 	var domElement js.Value
 	switch typedNode := p.newNode.(type) {
 	case *HtmlNode:
+		println("insert html node")
 		domElement = newHTMLElement(document, typedNode)
 	case *TextNode:
+		println("insert text node")
 		domElement = document.Call("createTextNode", typedNode.Text)
 	default:
 		// Ignore anything that's not dom related
@@ -182,7 +198,7 @@ func (p *patchReplace) execute(document js.Value) error {
 			return fmt.Errorf("old node was not of type HtmlNode, %T given instead", p.oldNode)
 		}
 
-		p.parentDomNode.Call("replaceChild", oldHtml, domElement)
+		p.parentDomNode.Call("replaceChild", oldHtml.domNode, domElement)
 
 		err := p.oldNode.Mount(domElement)
 		if err != nil {

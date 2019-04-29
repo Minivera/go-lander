@@ -2,10 +2,10 @@ package main
 
 import lander "github.com/minivera/go-lander"
 
-func wrapper(_ map[string]string, children []lander.Node) []lander.Node {
+func wrapper(_ map[string]interface{}, children []lander.Node) []lander.Node {
 	return []lander.Node{
-		lander.Html("section", map[string]string{}, []lander.Node{
-			lander.Html("div", map[string]string{}, children).Style(`
+		lander.Html("section", map[string]interface{}{}, []lander.Node{
+			lander.Html("div", map[string]interface{}{}, children).Style(`
 				margin-left: auto;
 				margin-right: auto;
 				max-width: 600px;
@@ -18,9 +18,9 @@ func wrapper(_ map[string]string, children []lander.Node) []lander.Node {
 	}
 }
 
-func manifoldContainer(_ map[string]string, children []lander.Node) []lander.Node {
+func manifoldContainer(_ map[string]interface{}, children []lander.Node) []lander.Node {
 	return []lander.Node{
-		lander.Html("div", map[string]string{
+		lander.Html("div", map[string]interface{}{
 			"itemscope": "true",
 			"itemtype":  "https://schema.org/Brand",
 		}, children).Style(`
@@ -31,139 +31,139 @@ func manifoldContainer(_ map[string]string, children []lander.Node) []lander.Nod
 	}
 }
 
-func manifold(_ map[string]string, _ []lander.Node) []lander.Node {
+func manifold(_ map[string]interface{}, _ []lander.Node) []lander.Node {
 	return []lander.Node{
-		lander.Component(manifoldContainer, map[string]string{}, []lander.Node{
-			lander.Html("div", map[string]string{}, []lander.Node{
-				lander.Svg("svg", map[string]string{
+		lander.Component(manifoldContainer, map[string]interface{}{}, []lander.Node{
+			lander.Html("div", map[string]interface{}{}, []lander.Node{
+				lander.Svg("svg", map[string]interface{}{
 					"height":      "3rem",
 					"width":       "3rem",
 					"viewBox":     "0 0 512 512",
 					"xmlns":       "http://www.w3.org/2000/svg",
 					"xmlns:xlink": "http://www.w3.org/1999/xlink",
 				}, []lander.Node{
-					lander.Svg("title", map[string]string{
+					lander.Svg("title", map[string]interface{}{
 						"itemProp": "name",
 					}, []lander.Node{
 						lander.Text("Manifold"),
 					}),
-					lander.Svg("defs", map[string]string{}, []lander.Node{
-						lander.Svg("linearGradient#manifold-a", map[string]string{
+					lander.Svg("defs", map[string]interface{}{}, []lander.Node{
+						lander.Svg("linearGradient#manifold-a", map[string]interface{}{
 							"x1": "1.202%",
 							"y1": "95.992%",
 							"x2": "92.841%",
 							"y2": "42.213%",
 						}, []lander.Node{
-							lander.Svg("stop", map[string]string{
+							lander.Svg("stop", map[string]interface{}{
 								"stop-color": "#FF0264",
 								"offset":     "0%",
 							}, []lander.Node{}),
-							lander.Svg("stop", map[string]string{
+							lander.Svg("stop", map[string]interface{}{
 								"stop-color": "#FE624E",
 								"offset":     "40.83%",
 							}, []lander.Node{}),
-							lander.Svg("stop", map[string]string{
+							lander.Svg("stop", map[string]interface{}{
 								"stop-color": "#FDBC39",
 								"offset":     "81.65%",
 							}, []lander.Node{}),
-							lander.Svg("stop", map[string]string{
+							lander.Svg("stop", map[string]interface{}{
 								"stop-color": "#FDDF31",
 								"offset":     "100%",
 							}, []lander.Node{}),
 						}),
-						lander.Svg("linearGradient#manifold-b", map[string]string{
+						lander.Svg("linearGradient#manifold-b", map[string]interface{}{
 							"x1": ".042%",
 							"y1": "49.985%",
 							"x2": "100.019%",
 							"y2": "49.985%",
 						}, []lander.Node{
-							lander.Svg("stop", map[string]string{
+							lander.Svg("stop", map[string]interface{}{
 								"stop-color": "#140A3B",
 								"offset":     "0%",
 							}, []lander.Node{}),
-							lander.Svg("stop", map[string]string{
+							lander.Svg("stop", map[string]interface{}{
 								"stop-color": "#064E91",
 								"offset":     "68.04%",
 							}, []lander.Node{}),
-							lander.Svg("stop", map[string]string{
+							lander.Svg("stop", map[string]interface{}{
 								"stop-color": "#006AB4",
 								"offset":     "100%",
 							}, []lander.Node{}),
 						}),
-						lander.Svg("linearGradient#manifold-c", map[string]string{
+						lander.Svg("linearGradient#manifold-c", map[string]interface{}{
 							"x1": ".465%",
 							"y1": "50.005%",
 							"x2": "173.382%",
 							"y2": "50.005%",
 						}, []lander.Node{
-							lander.Svg("stop", map[string]string{
+							lander.Svg("stop", map[string]interface{}{
 								"stop-color": "#349FD3",
 								"offset":     "0%",
 							}, []lander.Node{}),
-							lander.Svg("stop", map[string]string{
+							lander.Svg("stop", map[string]interface{}{
 								"stop-color": "#218ABE",
 								"offset":     "35.17%",
 							}, []lander.Node{}),
-							lander.Svg("stop", map[string]string{
+							lander.Svg("stop", map[string]interface{}{
 								"stop-color": "#00679B",
 								"offset":     "100%",
 							}, []lander.Node{}),
 						}),
-						lander.Svg("linearGradient#manifold-d", map[string]string{
+						lander.Svg("linearGradient#manifold-d", map[string]interface{}{
 							"x1": "-.029%",
 							"y1": "49.982%",
 							"x2": "99.865%",
 							"y2": "49.982%",
 						}, []lander.Node{
-							lander.Svg("stop", map[string]string{
+							lander.Svg("stop", map[string]interface{}{
 								"stop-color": "#A34CB4",
 								"offset":     "0%",
 							}, []lander.Node{}),
-							lander.Svg("stop", map[string]string{
+							lander.Svg("stop", map[string]interface{}{
 								"stop-color": "#954DB2",
 								"offset":     "9.192%",
 							}, []lander.Node{}),
-							lander.Svg("stop", map[string]string{
+							lander.Svg("stop", map[string]interface{}{
 								"stop-color": "#3C52A1",
 								"offset":     "71.69%",
 							}, []lander.Node{}),
-							lander.Svg("stop", map[string]string{
+							lander.Svg("stop", map[string]interface{}{
 								"stop-color": "#19549B",
 								"offset":     "100%",
 							}, []lander.Node{}),
 						}),
 					}),
-					lander.Svg("g", map[string]string{
+					lander.Svg("g", map[string]interface{}{
 						"fill":      "none",
 						"fill-rule": "evenodd",
 					}, []lander.Node{
-						lander.Svg("mask#manifold-mask", map[string]string{
+						lander.Svg("mask#manifold-mask", map[string]interface{}{
 							"fill": "#fff",
 						}, []lander.Node{
-							lander.Svg("circle", map[string]string{
+							lander.Svg("circle", map[string]interface{}{
 								"cx": "256",
 								"cy": "256",
 								"r":  "256",
 							}, []lander.Node{}),
 						}),
-						lander.Svg("path", map[string]string{
+						lander.Svg("path", map[string]interface{}{
 							"fill": "url(#manifold-a)",
 							"mask": "url(#manifold-mask)",
 							"d":    "M512 305.672H0V0h512z",
 						}, []lander.Node{}),
-						lander.Svg("path", map[string]string{
+						lander.Svg("path", map[string]interface{}{
 							"fill":      "url(#manifold-b)",
 							"fill-rule": "nonzero",
 							"mask":      "url(#manifold-mask)",
 							"d":         "M512 437.005C405.284 568.17 252.826 456.57 252.826 456.57L85.474 307.623l39.776-34.909c19.464-17.349 17.56-138.578 75.742-161.216 25.177-9.733 51.834 2.538 56.912 4.23 6.064 2.022 165.148 63.245 254.096 97.623v223.654z",
 						}, []lander.Node{}),
-						lander.Svg("path", map[string]string{
+						lander.Svg("path", map[string]interface{}{
 							"fill":      "url(#manifold-c)",
 							"fill-rule": "nonzero",
 							"mask":      "url(#manifold-mask)",
 							"d":         "M512 214.777V512H212.82c-6.33-25.985-12.886-62.758-12.886-86.955 0-71.511 37.448-119.114 76.377-98.38 10.578 5.712 19.887 17.56 30.254 33.64 15.868 24.964 32.37 37.024 47.815 37.447 5.29.212 10.79-1.058 15.656-3.597 11.214-5.924 21.369-18.618 29.409-38.082 5.924-13.752 10.578-31.101 13.963-51.412l1.693-10.79c4.866-30.043 12.906-53.104 22.85-68.972 0 0 .423-.635 1.057-1.48 4.655-6.771 23.908-29.832 67.914-11.002 1.653.772 3.35 1.56 5.078 2.36z",
 						}, []lander.Node{}),
-						lander.Svg("path", map[string]string{
+						lander.Svg("path", map[string]interface{}{
 							"fill":      "url(#manifold-d)",
 							"fill-rule": "nonzero",
 							"mask":      "url(#manifold-mask)",
@@ -223,9 +223,9 @@ const (
 	`
 )
 
-func oAuthButton(_ map[string]string, children []lander.Node) []lander.Node {
+func oAuthButton(_ map[string]interface{}, children []lander.Node) []lander.Node {
 	return []lander.Node{
-		lander.Html("a", map[string]string{}, children).Style(baseButtonStyle+`
+		lander.Html("a", map[string]interface{}{}, children).Style(baseButtonStyle+`
 			display: flex;
 			margin-left: 0;
 			margin-right: 0;
@@ -246,9 +246,9 @@ func oAuthButton(_ map[string]string, children []lander.Node) []lander.Node {
 	}
 }
 
-func button(_ map[string]string, children []lander.Node) []lander.Node {
+func button(_ map[string]interface{}, children []lander.Node) []lander.Node {
 	return []lander.Node{
-		lander.Html("button", map[string]string{}, children).Style(baseButtonStyle+`
+		lander.Html("button", map[string]interface{}{}, children).Style(baseButtonStyle+`
 			display: flex;
 			margin-left: 0;
 			margin-right: 0;
@@ -259,7 +259,7 @@ func button(_ map[string]string, children []lander.Node) []lander.Node {
 	}
 }
 
-func inputLabel(attrs map[string]string, children []lander.Node) []lander.Node {
+func inputLabel(attrs map[string]interface{}, children []lander.Node) []lander.Node {
 	return []lander.Node{
 		lander.Html("label", attrs, children).Style(`
 			display: block;
@@ -272,7 +272,7 @@ func inputLabel(attrs map[string]string, children []lander.Node) []lander.Node {
 	}
 }
 
-func input(attrs map[string]string, children []lander.Node) []lander.Node {
+func input(attrs map[string]interface{}, children []lander.Node) []lander.Node {
 	return []lander.Node{
 		lander.Html("input", attrs, children).Style(`
 			appearance: none;
@@ -301,9 +301,9 @@ func input(attrs map[string]string, children []lander.Node) []lander.Node {
 	}
 }
 
-func text(_ map[string]string, children []lander.Node) []lander.Node {
+func text(_ map[string]interface{}, children []lander.Node) []lander.Node {
 	return []lander.Node{
-		lander.Html("p", map[string]string{}, children).Style(`
+		lander.Html("p", map[string]interface{}{}, children).Style(`
 			line-height: 1.3;
 			font-size: 14px;
 			color: #575B5F;
@@ -319,6 +319,25 @@ func text(_ map[string]string, children []lander.Node) []lander.Node {
 			display: inline-block;
 			text-decoration: none;
 			transform: translateY(1px);
+		`),
+	}
+}
+
+func toast(_ map[string]interface{}, children []lander.Node) []lander.Node {
+	return []lander.Node{
+		lander.Html("div", map[string]interface{}{}, children).Style(`
+			display: flex;
+			justify-content: space-between;
+			flex-direction: row;
+			position: relative;
+			margin: 0;
+			padding: 0.5rem 1rem;
+			font-size: 14px;
+			line-height: 1.5;
+			border-radius: 4px;
+			background: rgba(213,15,73,0.05);
+			color: #D50F49;
+			box-shadow: inset 0 0 0 1px #FFC4D2;
 		`),
 	}
 }

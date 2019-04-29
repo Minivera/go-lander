@@ -33,7 +33,7 @@ lint: vendor/bin/golangci-lint vendor .golangci.gen.yml
 build-test: test/fondant.go test/main.go
 	GOOS=js GOARCH=wasm go build -o test/main.wasm test/main.go test/fondant.go
 
-serve-test:
+serve-test: build-test
 	go run test/serve.go
 
 .PHONY: build-test serve-test

@@ -1,22 +1,18 @@
 package go_lander
 
-import "strings"
-
-func Html(tag string, attributes map[string]string, children []Node) *HtmlNode {
+func Html(tag string, attributes map[string]interface{}, children []Node) *HtmlNode {
 	tagname, id, classes := hyperscript(tag)
 
-	if val, ok := attributes["id"]; ok {
-		id = val
+	node, err := newHtmlNode(tagname, id, classes, attributes, children)
+	if err != nil {
+		// We don't want to return an error for ease of use, panic instead
+		panic(err)
 	}
 
-	if val, ok := attributes["class"]; ok {
-		classes = strings.Split(val, " ")
-	}
-
-	return newHtmlNode(tagname, id, classes, attributes, children)
+	return node
 }
 
-func Svg(tag string, attributes map[string]string, children []Node) *HtmlNode {
+func Svg(tag string, attributes map[string]interface{}, children []Node) *HtmlNode {
 	node := Html(tag, attributes, children)
 	node.namespace = "http://www.w3.org/2000/svg"
 	return node
@@ -30,6 +26,6 @@ func Fragment(children []Node) *FragmentNode {
 	return newFragmentNode(children)
 }
 
-func Component(factory FunctionComponent, attributes map[string]string, children []Node) *FuncNode {
+func Component(factory FunctionComponent, attributes map[string]interface{}, children []Node) *FuncNode {
 	return newFuncNode(factory, attributes, children)
 }

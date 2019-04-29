@@ -8,10 +8,11 @@ import (
 
 type Node interface {
 	ID() uint64
+	SetID(uint64)
 	Create(uint64) error
 	Mount(js.Value) error
 	Position(parent, next, prev Node) error
-	Update(map[string]string) error
+	Update(map[string]interface{}) error
 	Remove() error
 	Render() error
 	ToString() string
@@ -32,6 +33,10 @@ func (n *baseNode) ID() uint64 {
 	return n.id
 }
 
+func (n *baseNode) SetID(id uint64) {
+	n.id = id
+}
+
 func (n *baseNode) Create(id uint64) error {
 	n.id = id
 	return nil
@@ -48,7 +53,7 @@ func (n *baseNode) Position(parent, next, prev Node) error {
 	return nil
 }
 
-func (n *baseNode) Update(newAttributes map[string]string) error {
+func (n *baseNode) Update(newAttributes map[string]interface{}) error {
 	return nil
 }
 
@@ -80,7 +85,7 @@ func (n *baseNode) RemoveChildren(node Node) error {
 	return nil
 }
 
-type FunctionComponent func(attributes map[string]string, children []Node) []Node
+type FunctionComponent func(attributes map[string]interface{}, children []Node) []Node
 
 type HtmlNode struct {
 	baseNode
@@ -89,22 +94,37 @@ type HtmlNode struct {
 	namespace   string
 	activeClass string
 
-	DomID      string
-	Tag        string
-	Classes    []string
-	Attributes map[string]string
-	Children   []Node
-	Styles     []string
+	DomID          string
+	Tag            string
+	Classes        []string
+	Attributes     map[string]string
+	EventListeners map[string]EventListener
+	Children       []Node
+	Styles         []string
 }
 
-func newHtmlNode(tag, id string, classes []string, attributes map[string]string, children []Node) *HtmlNode {
-	return &HtmlNode{
-		DomID:      id,
-		Tag:        tag,
-		Classes:    classes,
-		Attributes: attributes,
-		Children:   children,
+func newHtmlNode(tag, id string, classes []string, attributes map[string]interface{}, children []Node) (*HtmlNode, error) {
+	attrs, events, err := extractAttributes(attributes)
+	if err != nil {
+		return nil, err
 	}
+
+	if val, ok := attrs["id"]; ok {
+		id = val
+	}
+
+	if val, ok := attrs["class"]; ok {
+		classes = strings.Split(val, " ")
+	}
+
+	return &HtmlNode{
+		DomID:          id,
+		Tag:            tag,
+		Classes:        classes,
+		Attributes:     attrs,
+		EventListeners: events,
+		Children:       children,
+	}, nil
 }
 
 func (n *HtmlNode) Mount(newNode js.Value) error {
@@ -112,18 +132,24 @@ func (n *HtmlNode) Mount(newNode js.Value) error {
 	return nil
 }
 
-func (n *HtmlNode) Update(newAttributes map[string]string) error {
-	n.Attributes = mergeAttributes(n.Attributes, newAttributes)
+func (n *HtmlNode) Update(newAttributes map[string]interface{}) error {
+	attrs, events, err := extractAttributes(newAttributes)
+	if err != nil {
+		return err
+	}
 
-	if val, ok := newAttributes["id"]; ok {
+	if val, ok := attrs["id"]; ok {
 		n.DomID = val
-		delete(newAttributes, "id")
+		delete(attrs, "id")
 	}
 
-	if val, ok := newAttributes["class"]; ok {
+	if val, ok := attrs["class"]; ok {
 		n.Classes = strings.Split(val, " ")
-		delete(newAttributes, "class")
+		delete(attrs, "class")
 	}
+
+	n.Attributes = attrs
+	n.EventListeners = events
 
 	return nil
 }
@@ -214,9 +240,14 @@ func (n *HtmlNode) Clone() Node {
 		clonedAttrs[key] = value
 	}
 
+	clonedEvents := make(map[string]EventListener, len(n.EventListeners))
+	for key, value := range n.EventListeners {
+		clonedEvents[key] = value
+	}
+
 	clonedChildren := make([]Node, len(n.Children))
 	for index, child := range n.Children {
-		clonedChildren[index] = child
+		clonedChildren[index] = child.Clone()
 	}
 
 	clonedClasses := make([]string, len(n.Classes))
@@ -233,14 +264,15 @@ func (n *HtmlNode) Clone() Node {
 		baseNode: baseNode{
 			id: n.id,
 		},
-		domNode:    n.domNode,
-		namespace:  n.namespace,
-		Tag:        n.Tag,
-		DomID:      n.DomID,
-		Attributes: clonedAttrs,
-		Classes:    clonedClasses,
-		Children:   clonedChildren,
-		Styles:     clonedStyles,
+		domNode:        n.domNode,
+		namespace:      n.namespace,
+		Tag:            n.Tag,
+		DomID:          n.DomID,
+		Attributes:     clonedAttrs,
+		EventListeners: clonedEvents,
+		Classes:        clonedClasses,
+		Children:       clonedChildren,
+		Styles:         clonedStyles,
 	}
 }
 
@@ -278,8 +310,13 @@ func (n *TextNode) Mount(newNode js.Value) error {
 	return nil
 }
 
-func (n *TextNode) Update(newAttributes map[string]string) error {
-	if val, ok := newAttributes["text"]; ok {
+func (n *TextNode) Update(newAttributes map[string]interface{}) error {
+	attrs, _, err := extractAttributes(newAttributes)
+	if err != nil {
+		return err
+	}
+
+	if val, ok := attrs["text"]; ok {
 		n.Text = val
 	}
 	return nil
@@ -397,11 +434,11 @@ type FuncNode struct {
 	factory       FunctionComponent
 	givenChildren []Node
 
-	Attributes map[string]string
+	Attributes map[string]interface{}
 	Children   []Node
 }
 
-func newFuncNode(factory FunctionComponent, attributes map[string]string, givenChildren []Node) *FuncNode {
+func newFuncNode(factory FunctionComponent, attributes map[string]interface{}, givenChildren []Node) *FuncNode {
 	return &FuncNode{
 		Attributes:    attributes,
 		factory:       factory,
@@ -409,8 +446,8 @@ func newFuncNode(factory FunctionComponent, attributes map[string]string, givenC
 	}
 }
 
-func (n *FuncNode) Update(newAttributes map[string]string) error {
-	n.Attributes = mergeAttributes(n.Attributes, newAttributes)
+func (n *FuncNode) Update(newAttributes map[string]interface{}) error {
+	n.Attributes = newAttributes
 	return nil
 }
 
@@ -432,7 +469,7 @@ func (n *FuncNode) GetChildren() []Node {
 }
 
 func (n *FuncNode) Clone() Node {
-	clonedAttrs := make(map[string]string, len(n.Attributes))
+	clonedAttrs := make(map[string]interface{}, len(n.Attributes))
 	for key, value := range n.Attributes {
 		clonedAttrs[key] = value
 	}
@@ -446,7 +483,9 @@ func (n *FuncNode) Clone() Node {
 		baseNode: baseNode{
 			id: n.id,
 		},
-		Attributes: clonedAttrs,
-		Children:   clonedChildren,
+		factory:       n.factory,
+		givenChildren: n.givenChildren,
+		Attributes:    clonedAttrs,
+		Children:      clonedChildren,
 	}
 }
