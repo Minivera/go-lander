@@ -171,7 +171,7 @@ func (n *HtmlNode) ToString() string {
 	}
 
 	return fmt.Sprintf(
-		`<%s id="%s" class="%s" %s>%s</%s>`,
+		`<%s id="%d" class="%s" %s>%s</%s>`,
 		n.Tag,
 		n.id,
 		strings.Join(n.Classes, " "),

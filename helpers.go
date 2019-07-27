@@ -17,7 +17,7 @@ func extractAttributes(attributes map[string]interface{}) (map[string]string, ma
 		case string:
 			attrs[key] = casted
 		case int:
-			attrs[key] = string(casted)
+			attrs[key] = fmt.Sprintf("%d", casted)
 		case bool:
 			// Bool attributes only adds the attribute if true, like required=""
 			if casted {
@@ -34,11 +34,12 @@ func extractAttributes(attributes map[string]interface{}) (map[string]string, ma
 }
 
 func hyperscript(tag string) (string, string, []string) {
-	tagParts := strings.Split(tag, ".")
-	if len(tagParts) <= 0 {
+	if tag == "" {
 		// Always create a div by default
 		return "div", "", []string{}
 	}
+
+	tagParts := strings.Split(tag, ".")
 	if len(tagParts) == 1 {
 		if strings.Index(tagParts[0], "#") >= 0 {
 			tagAndID := strings.Split(tagParts[0], "#")
@@ -48,7 +49,7 @@ func hyperscript(tag string) (string, string, []string) {
 	}
 
 	var tagname, id string
-	classes := make([]string, len(tagParts))
+	classes := []string{}
 	for i, part := range tagParts {
 		if strings.Index(part, "#") >= 0 {
 			tagAndID := strings.Split(part, "#")
@@ -59,26 +60,14 @@ func hyperscript(tag string) (string, string, []string) {
 				classes = append(classes, tagAndID[0])
 			}
 		} else {
-			classes = append(classes, part)
+			if i == 0 {
+				tagname = part
+			} else {
+				classes = append(classes, part)
+			}
 		}
 	}
 	return tagname, id, classes
-}
-
-func walkTree(currentNode Node, callback func(Node) error) error {
-	err := callback(currentNode)
-	if err != nil {
-		return err
-	}
-
-	for _, child := range currentNode.GetChildren() {
-		err := walkTree(child, callback)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func newHTMLElement(document js.Value, currentElement *HtmlNode) js.Value {
@@ -107,7 +96,7 @@ func newHTMLElement(document js.Value, currentElement *HtmlNode) js.Value {
 
 const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-var seededRand *rand.Rand = rand.New(
+var seededRand = rand.New(
 	rand.NewSource(time.Now().UnixNano()),
 )
 

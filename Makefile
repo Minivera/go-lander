@@ -15,8 +15,8 @@ mod-tidy:
 # Test and linting
 #################################################
 
-test: vendor generated
-	@CGO_ENABLED=0 go test -v $$(go list ./... | grep -v example)
+test: vendor
+	@CGO_ENABLED=0 GOOS=js GOARCH=wasm go test -exec $(GOROOT)/misc/wasm/go_js_wasm_exec -v $$(go list ./... | grep -v example)
 
 comma:= ,
 empty:=
@@ -33,7 +33,7 @@ $(COVER_TEST_PKGS:=-cover): %-cover: all-cover.txt
 all-cover.txt:
 	echo "mode: atomic" > all-cover.txt
 
-cover: vendor generated all-cover.txt $(COVER_TEST_PKGS:=-cover)
+cover: vendor all-cover.txt $(COVER_TEST_PKGS:=-cover)
 
 .golangci.gen.yml: .golangci.yml
 	$(shell awk '/enable:/{y=1;next} y == 0 {print}' $< > $@)

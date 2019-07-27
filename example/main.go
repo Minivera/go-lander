@@ -212,7 +212,7 @@ func loginPage(_ map[string]interface{}, _ []lander.Node) []lander.Node {
 
 var landerEnv *lander.DomEnvironment
 
-func main() {
+func main_1() {
 	c := make(chan bool)
 
 	tree := lander.Component(wrapper, map[string]interface{}{}, []lander.Node{
