@@ -1,4 +1,4 @@
-package go_lander
+package lander
 
 import (
 	"fmt"
@@ -13,7 +13,7 @@ func hashPosition(positionString string) uint64 {
 
 func hashNode(node Node) uint64 {
 	switch typedNode := node.(type) {
-	case *HtmlNode:
+	case *HTMLNode:
 		stringToHash := ""
 
 		for key, value := range typedNode.Attributes {
@@ -27,7 +27,7 @@ func hashNode(node Node) uint64 {
 
 		return xxhash.Sum64String(stringToHash)
 	case *TextNode:
-		return xxhash.Sum64String(fmt.Sprintf(`[id="%s"]`, typedNode.Text))
+		return xxhash.Sum64String(fmt.Sprintf(`[text="%s"]`, typedNode.Text))
 	case *FuncNode:
 		stringToHash := ""
 

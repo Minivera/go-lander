@@ -1,9 +1,9 @@
-package go_lander
+package lander
 
-func Html(tag string, attributes map[string]interface{}, children []Node) *HtmlNode {
+func Html(tag string, attributes map[string]interface{}, children []Node) *HTMLNode {
 	tagname, id, classes := hyperscript(tag)
 
-	node, err := newHtmlNode(tagname, id, classes, attributes, children)
+	node, err := newHTMLNode(tagname, id, classes, attributes, children)
 	if err != nil {
 		// We don't want to return an error for ease of use, panic instead
 		panic(err)
@@ -12,7 +12,7 @@ func Html(tag string, attributes map[string]interface{}, children []Node) *HtmlN
 	return node
 }
 
-func Svg(tag string, attributes map[string]interface{}, children []Node) *HtmlNode {
+func Svg(tag string, attributes map[string]interface{}, children []Node) *HTMLNode {
 	node := Html(tag, attributes, children)
 	node.namespace = "http://www.w3.org/2000/svg"
 	return node

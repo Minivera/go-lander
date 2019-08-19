@@ -1,4 +1,4 @@
-package go_lander
+package lander
 
 import (
 	"fmt"
@@ -34,7 +34,7 @@ func TestExtractAttributes(t *testing.T) {
 			expectedEventListeners: []string{},
 		},
 		{
-			scenario: "Work when given attributes with even listeners",
+			scenario: "Work when given attributes with event listeners",
 			attributes: map[string]interface{}{
 				"click": sampleEventListener,
 			},

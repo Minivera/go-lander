@@ -3,6 +3,7 @@ module github.com/minivera/go-lander
 require (
 	github.com/OneOfOne/xxhash v1.2.5 // indirect
 	github.com/cespare/xxhash v1.1.0
+	github.com/google/go-cmp v0.3.1
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/stretchr/testify v1.3.0
 	github.com/tdewolff/minify/v2 v2.4.0

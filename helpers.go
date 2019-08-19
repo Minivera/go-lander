@@ -1,4 +1,4 @@
-package go_lander
+package lander
 
 import (
 	"fmt"
@@ -70,7 +70,7 @@ func hyperscript(tag string) (string, string, []string) {
 	return tagname, id, classes
 }
 
-func newHTMLElement(document js.Value, currentElement *HtmlNode) js.Value {
+func newHTMLElement(document js.Value, currentElement *HTMLNode) js.Value {
 	var domElement js.Value
 	if currentElement.namespace != "" {
 		domElement = document.Call("createElementNS", currentElement.namespace, currentElement.Tag)

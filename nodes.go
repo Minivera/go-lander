@@ -1,7 +1,8 @@
-package go_lander
+package lander
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"syscall/js"
 )
@@ -87,7 +88,7 @@ func (n *baseNode) RemoveChildren(node Node) error {
 
 type FunctionComponent func(attributes map[string]interface{}, children []Node) []Node
 
-type HtmlNode struct {
+type HTMLNode struct {
 	baseNode
 
 	domNode     js.Value
@@ -103,7 +104,7 @@ type HtmlNode struct {
 	Styles         []string
 }
 
-func newHtmlNode(tag, id string, classes []string, attributes map[string]interface{}, children []Node) (*HtmlNode, error) {
+func newHTMLNode(tag, id string, classes []string, attributes map[string]interface{}, children []Node) (*HTMLNode, error) {
 	attrs, events, err := extractAttributes(attributes)
 	if err != nil {
 		return nil, err
@@ -117,22 +118,23 @@ func newHtmlNode(tag, id string, classes []string, attributes map[string]interfa
 		classes = strings.Split(val, " ")
 	}
 
-	return &HtmlNode{
+	return &HTMLNode{
 		DomID:          id,
 		Tag:            tag,
 		Classes:        classes,
 		Attributes:     attrs,
 		EventListeners: events,
 		Children:       children,
+		Styles:         []string{},
 	}, nil
 }
 
-func (n *HtmlNode) Mount(newNode js.Value) error {
+func (n *HTMLNode) Mount(newNode js.Value) error {
 	n.domNode = newNode
 	return nil
 }
 
-func (n *HtmlNode) Update(newAttributes map[string]interface{}) error {
+func (n *HTMLNode) Update(newAttributes map[string]interface{}) error {
 	attrs, events, err := extractAttributes(newAttributes)
 	if err != nil {
 		return err
@@ -154,26 +156,36 @@ func (n *HtmlNode) Update(newAttributes map[string]interface{}) error {
 	return nil
 }
 
-func (n *HtmlNode) Remove() error {
-	n.domNode = js.Value{}
+func (n *HTMLNode) Remove() error {
+	n.domNode = js.Undefined()
 	return nil
 }
 
-func (n *HtmlNode) ToString() string {
+func (n *HTMLNode) ToString() string {
 	content := ""
 	for _, child := range n.Children {
 		content += child.ToString()
 	}
 
+	// Arrange keys in sorted order to make them more predictable
+	attrsKeys := make([]string, 0, len(n.Attributes))
+	for key, _ := range n.Attributes {
+		attrsKeys = append(attrsKeys, key)
+	}
+	sort.Strings(attrsKeys)
+
 	attributes := ""
-	for key, value := range n.Attributes {
-		attributes += fmt.Sprintf(` %s="%s"`, key, value)
+	for _, key := range attrsKeys {
+		if key == "class" || key == "id" {
+			continue
+		}
+		attributes += fmt.Sprintf(` %s="%s"`, key, n.Attributes[key])
 	}
 
 	return fmt.Sprintf(
-		`<%s id="%d" class="%s" %s>%s</%s>`,
+		`<%s id="%s" class="%s"%s>%s</%s>`,
 		n.Tag,
-		n.id,
+		n.DomID,
 		strings.Join(n.Classes, " "),
 		attributes,
 		content,
@@ -181,14 +193,15 @@ func (n *HtmlNode) ToString() string {
 	)
 }
 
-func (n *HtmlNode) GetChildren() []Node {
+func (n *HTMLNode) GetChildren() []Node {
 	return n.Children
 }
 
-func (n *HtmlNode) InsertChildren(node Node, position int) error {
+func (n *HTMLNode) InsertChildren(node Node, position int) error {
 	// Insert at the end on a -1
 	if position < 0 {
 		n.Children = append(n.Children, node)
+		return nil
 	}
 
 	newChildren := make([]Node, len(n.Children)+1)
@@ -197,9 +210,8 @@ func (n *HtmlNode) InsertChildren(node Node, position int) error {
 		if index == position {
 			newChildren[index] = node
 			index++
-		} else {
-			newChildren[index] = child
 		}
+		newChildren[index] = child
 		index++
 	}
 
@@ -208,7 +220,7 @@ func (n *HtmlNode) InsertChildren(node Node, position int) error {
 	return nil
 }
 
-func (n *HtmlNode) ReplaceChildren(old, new Node) error {
+func (n *HTMLNode) ReplaceChildren(old, new Node) error {
 	for index, child := range n.Children {
 		if child == old {
 			n.Children[index] = new
@@ -218,10 +230,14 @@ func (n *HtmlNode) ReplaceChildren(old, new Node) error {
 	return nil
 }
 
-func (n *HtmlNode) RemoveChildren(node Node) error {
+func (n *HTMLNode) RemoveChildren(node Node) error {
 	newChildren := make([]Node, len(n.Children)-1)
 	index := 0
 	for _, child := range n.Children {
+		if index >= len(newChildren) {
+			// Could not find the child
+			return nil
+		}
 		if child == node {
 			continue
 		}
@@ -234,7 +250,7 @@ func (n *HtmlNode) RemoveChildren(node Node) error {
 	return nil
 }
 
-func (n *HtmlNode) Clone() Node {
+func (n *HTMLNode) Clone() Node {
 	clonedAttrs := make(map[string]string, len(n.Attributes))
 	for key, value := range n.Attributes {
 		clonedAttrs[key] = value
@@ -260,7 +276,7 @@ func (n *HtmlNode) Clone() Node {
 		clonedStyles[index] = val
 	}
 
-	return &HtmlNode{
+	return &HTMLNode{
 		baseNode: baseNode{
 			id: n.id,
 		},
@@ -276,7 +292,7 @@ func (n *HtmlNode) Clone() Node {
 	}
 }
 
-func (n *HtmlNode) Style(styling string) *HtmlNode {
+func (n *HTMLNode) Style(styling string) *HTMLNode {
 	// Generate a random CSS class name of length 10
 	className := randomString(10)
 
@@ -286,7 +302,7 @@ func (n *HtmlNode) Style(styling string) *HtmlNode {
 	return n
 }
 
-func (n *HtmlNode) SelectorStyle(selector, styling string) *HtmlNode {
+func (n *HTMLNode) SelectorStyle(selector, styling string) *HTMLNode {
 	n.Styles = append(n.Styles, fmt.Sprintf(".%s%s{%s}", n.activeClass, selector, styling))
 	return n
 }
@@ -323,7 +339,7 @@ func (n *TextNode) Update(newAttributes map[string]interface{}) error {
 }
 
 func (n *TextNode) Remove() error {
-	n.domNode = js.Value{}
+	n.domNode = js.Undefined()
 	return nil
 }
 
@@ -369,6 +385,7 @@ func (n *FragmentNode) InsertChildren(node Node, position int) error {
 	// Insert at the end on a -1
 	if position < 0 {
 		n.Children = append(n.Children, node)
+		return nil
 	}
 
 	newChildren := make([]Node, len(n.Children)+1)
@@ -377,9 +394,8 @@ func (n *FragmentNode) InsertChildren(node Node, position int) error {
 		if index == position {
 			newChildren[index] = node
 			index++
-		} else {
-			newChildren[index] = child
 		}
+		newChildren[index] = child
 		index++
 	}
 
@@ -402,6 +418,10 @@ func (n *FragmentNode) RemoveChildren(node Node) error {
 	newChildren := make([]Node, len(n.Children)-1)
 	index := 0
 	for _, child := range n.Children {
+		if index >= len(newChildren) {
+			// Could not find the child
+			return nil
+		}
 		if child == node {
 			continue
 		}
@@ -474,8 +494,8 @@ func (n *FuncNode) Clone() Node {
 		clonedAttrs[key] = value
 	}
 
-	clonedChildren := make([]Node, len(n.Children))
-	for index, child := range n.Children {
+	clonedChildren := make([]Node, len(n.givenChildren))
+	for index, child := range n.givenChildren {
 		clonedChildren[index] = child
 	}
 
@@ -484,8 +504,8 @@ func (n *FuncNode) Clone() Node {
 			id: n.id,
 		},
 		factory:       n.factory,
-		givenChildren: n.givenChildren,
+		givenChildren: clonedChildren,
 		Attributes:    clonedAttrs,
-		Children:      clonedChildren,
+		Children:      []Node{},
 	}
 }

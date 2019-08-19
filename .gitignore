@@ -16,4 +16,5 @@ vendor
 
 # IDE related things
 .idea
+.vscode
 .DS_Store

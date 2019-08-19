@@ -1,10 +1,11 @@
-package go_lander
+package lander
 
 import (
 	"sync"
 	"syscall/js"
 )
 
+// EventEnv is the interface for an environement for a DOM event triggered in Javascript.
 // This has been borrowed from vugu, make it our own
 type EventEnv interface {
 	Lock()         // acquire write lock
@@ -15,22 +16,27 @@ type EventEnv interface {
 	RUnlock() // release read lock
 }
 
+// EventListener is the type definition for a DOM event in javascript.
 type EventListener func(Node, *DOMEvent) error
 
+// DOMEvent is the base struct that contains the data for a DOM event triggered on the client.
 type DOMEvent struct {
 	browserEvent js.Value
 	this         js.Value
 	environment  *eventEnv
 }
 
+// JSEvent returns the browser event value which contains what would usually be the first argument of an event listener.
 func (e *DOMEvent) JSEvent() js.Value {
 	return e.browserEvent
 }
 
+// JSEventThis returns the value of the "this" variable for the Javascript event listener.
 func (e *DOMEvent) JSEventThis() js.Value {
 	return e.this
 }
 
+// EventEnv returns the Environement for the current event, allowing to block or unblock rendering if necessary.
 func (e *DOMEvent) EventEnv() EventEnv {
 	return e.environment
 }

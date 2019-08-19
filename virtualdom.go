@@ -1,4 +1,4 @@
-package go_lander
+package lander
 
 import (
 	"fmt"
@@ -218,7 +218,7 @@ func (e *DomEnvironment) recursivelyMount(lastElement js.Value, currentNode Node
 	styles := make([]string, 250)
 
 	switch typedNode := currentNode.(type) {
-	case *HtmlNode:
+	case *HTMLNode:
 		add = true
 		domElement = newHTMLElement(document, typedNode)
 
@@ -297,7 +297,7 @@ func (e *DomEnvironment) patchDom(tree Node) error {
 
 func (e *DomEnvironment) generatePatches(prev, old, new Node, lastDomElement js.Value) error {
 	domElement := lastDomElement
-	if node, ok := old.(*HtmlNode); ok {
+	if node, ok := old.(*HTMLNode); ok {
 		domElement = node.domNode
 	}
 
@@ -343,7 +343,7 @@ func (e *DomEnvironment) generatePatches(prev, old, new Node, lastDomElement js.
 			e.patches = append(e.patches, newPatchText(lastDomElement, old, val.Text))
 			return nil
 		}
-		if _, ok := new.(*HtmlNode); ok {
+		if _, ok := new.(*HTMLNode); ok {
 			e.patches = append(e.patches, newPatchHtml(old, new))
 		}
 

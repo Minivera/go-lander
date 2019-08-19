@@ -50,7 +50,7 @@ lint: vendor/bin/golangci-lint vendor .golangci.gen.yml
 # Building and serving examples
 #################################################
 
-build-example: test/fondant.go test/main.go
+build-example:
 	GOOS=js GOARCH=wasm go build -o example/main.wasm example/main.go example/fondant.go
 
 serve-example: build-example

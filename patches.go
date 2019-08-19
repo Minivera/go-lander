@@ -1,4 +1,4 @@
-package go_lander
+package lander
 
 import (
 	"fmt"
@@ -60,9 +60,9 @@ func newPatchHtml(old, new Node) patch {
 }
 
 func (p *patchHtml) execute(_ js.Value) error {
-	newHtml, ok := p.newNode.(*HtmlNode)
+	newHtml, ok := p.newNode.(*HTMLNode)
 	if !ok {
-		return fmt.Errorf("old node was not of type HtmlNode, %T given instead", p.oldNode)
+		return fmt.Errorf("old node was not of type HTMLNode, %T given instead", p.oldNode)
 	}
 
 	// TODO: Find a way to bind new event listeners
@@ -114,7 +114,7 @@ func (p *patchInsert) execute(document js.Value) error {
 
 	var domElement js.Value
 	switch typedNode := p.newNode.(type) {
-	case *HtmlNode:
+	case *HTMLNode:
 		println("insert html node")
 		domElement = newHTMLElement(document, typedNode)
 	case *TextNode:
@@ -155,7 +155,7 @@ func (p *patchRemove) execute(document js.Value) error {
 	}
 
 	switch typedNode := p.oldNode.(type) {
-	case *HtmlNode:
+	case *HTMLNode:
 		p.parentDomNode.Call("removeChild", typedNode.domNode)
 	case *TextNode:
 		p.parentDomNode.Call("removeChild", typedNode.domNode)
@@ -190,12 +190,12 @@ func (p *patchReplace) execute(document js.Value) error {
 	}
 
 	switch typedNode := p.newNode.(type) {
-	case *HtmlNode:
+	case *HTMLNode:
 		domElement := newHTMLElement(document, typedNode)
 
-		oldHtml, ok := p.oldNode.(*HtmlNode)
+		oldHtml, ok := p.oldNode.(*HTMLNode)
 		if !ok {
-			return fmt.Errorf("old node was not of type HtmlNode, %T given instead", p.oldNode)
+			return fmt.Errorf("old node was not of type HTMLNode, %T given instead", p.oldNode)
 		}
 
 		p.parentDomNode.Call("replaceChild", oldHtml.domNode, domElement)
