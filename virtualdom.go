@@ -305,11 +305,11 @@ func (e *DomEnvironment) patchDom(tree Node) error {
 func (e *DomEnvironment) generatePatches(prev, old, new Node, lastDomElement jsValue) error {
 	domElement := lastDomElement
 	if node, ok := old.(*HTMLNode); ok {
-		domElement = document.Call("querySelector", fmt.Sprintf(`[data-lander-id="%d"]`, node.id))
+		domElement = document.Call("querySelector", fmt.Sprintf(`[data-lander-id="%d"]`, node.ID()))
 		if !domElement.Truthy() {
 			return fmt.Errorf(
-				"failed to find mount parent using query selector %s",
-				fmt.Sprintf(`[data-lander-id="%d"]`, node.id),
+				"failed to find element using query selector %s",
+				fmt.Sprintf(`[data-lander-id="%d"]`, node.ID()),
 			)
 		}
 	}

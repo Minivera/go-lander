@@ -5,6 +5,7 @@ package lander
 import (
 	"fmt"
 	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -79,7 +80,7 @@ func newHTMLElement(document jsValue, currentElement *HTMLNode) jsValue {
 		domElement = document.Call("createElement", currentElement.Tag)
 	}
 
-	domElement.Call("setAttribute", "data-lander-id", currentElement.id)
+	domElement.Call("setAttribute", "data-lander-id", strconv.FormatUint(currentElement.ID(), 10))
 
 	for key, value := range currentElement.Attributes {
 		domElement.Call("setAttribute", key, value)

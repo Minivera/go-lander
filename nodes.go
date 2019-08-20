@@ -462,7 +462,7 @@ func (n *FuncNode) Clone() Node {
 
 	clonedChildren := make([]Node, len(n.givenChildren))
 	for index, child := range n.givenChildren {
-		clonedChildren[index] = child
+		clonedChildren[index] = child.Clone()
 	}
 
 	return &FuncNode{

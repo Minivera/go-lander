@@ -72,10 +72,6 @@ func (p *patchHTML) execute(document jsValue) error {
 	if !ok {
 		return fmt.Errorf("new node was not of type HTMLNode, %T given instead", p.newNode)
 	}
-	oldHtml, ok := p.oldNode.(*HTMLNode)
-	if !ok {
-		return fmt.Errorf("old node was not of type HTMLNode, %T given instead", p.oldNode)
-	}
 
 	// TODO: Find a way to bind new event listeners
 	newAttributes := make(map[string]interface{}, len(newHtml.Attributes)+len(newHtml.EventListeners)+2)
@@ -88,21 +84,42 @@ func (p *patchHTML) execute(document jsValue) error {
 		newAttributes[key] = value
 	}
 
-	newAttributes["id"] = newHtml.DomID
-	newAttributes["class"] = strings.Join(newHtml.Classes, " ")
+	if newHtml.DomID != "" {
+		newAttributes["id"] = newHtml.DomID
+	}
+	if len(newHtml.Classes) > 0 {
+		newAttributes["class"] = strings.Join(newHtml.Classes, " ")
+	}
 
 	err := p.oldNode.Update(newAttributes)
 	if err != nil {
 		return err
 	}
 
-	newNode := newHTMLElement(document, oldHtml)
+	oldHtml, ok := p.oldNode.(*HTMLNode)
+	if !ok {
+		return fmt.Errorf("new node was not of type HTMLNode, %T given instead", p.oldNode)
+	}
+
 	oldNode := document.Call("querySelector", fmt.Sprintf(`[data-lander-id="%d"]`, p.oldNode.ID()))
 	if !oldNode.Truthy() {
 		return fmt.Errorf("could not find node for id [data-lander-id=%d]", p.oldNode.ID())
 	}
 
-	document.Call("replaceChild", newNode, oldNode)
+	// TODO: Find a way to clear the attributes on the dom node before setting the new ones
+	for key, value := range oldHtml.Attributes {
+		oldNode.Call("setAttribute", key, value)
+	}
+
+	// TODO: Find a way to clear the class list before adding to it
+	classList := oldNode.Get("classList")
+	for _, value := range oldHtml.Classes {
+		classList.Call("add", value)
+	}
+
+	if oldHtml.DomID != "" {
+		oldNode.Set("id", oldHtml.DomID)
+	}
 
 	return nil
 }
