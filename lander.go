@@ -1,3 +1,5 @@
+// +build js,wasm
+
 package lander
 
 func Html(tag string, attributes map[string]interface{}, children []Node) *HTMLNode {

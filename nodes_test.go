@@ -1,7 +1,8 @@
+// +build js,wasm
+
 package lander
 
 import (
-	"syscall/js"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -46,15 +47,6 @@ func TestBaseNode_Create(t *testing.T) {
 	})
 }
 
-func TestBaseNode_Mount(t *testing.T) {
-	t.Run("Does nothing on base mount", func(t *testing.T) {
-		node := &baseNode{}
-		err := node.Mount(js.Undefined())
-
-		assert.Nil(t, err, "Mount should not trigger an error")
-	})
-}
-
 func TestBaseNode_Position(t *testing.T) {
 	t.Run("Sets the siblings and parent on position", func(t *testing.T) {
 		node := &baseNode{}
@@ -88,15 +80,6 @@ func TestBaseNode_Update(t *testing.T) {
 		err := node.Update(nil)
 
 		assert.Nil(t, err, "Update should not trigger an error")
-	})
-}
-
-func TestBaseNode_Remove(t *testing.T) {
-	t.Run("Does nothing on base remove", func(t *testing.T) {
-		node := &baseNode{}
-		err := node.Remove()
-
-		assert.Nil(t, err, "Remove should not trigger an error")
 	})
 }
 
@@ -243,18 +226,6 @@ func TestNewHtmlNode(t *testing.T) {
 	}
 }
 
-func TestHTMLNode_Mount(t *testing.T) {
-	t.Run("Mount on HTML node will set the dom node", func(t *testing.T) {
-		node := HTMLNode{}
-		domNode := js.Value{}
-
-		err := node.Mount(domNode)
-
-		assert.NoError(t, err, "Mount should not error")
-		assert.Equal(t, domNode, node.domNode, "The node's dom node should be mounted")
-	})
-}
-
 func TestHTMLNode_Update(t *testing.T) {
 	var event EventListener = func(Node, *DOMEvent) error { return nil }
 
@@ -306,17 +277,6 @@ func TestHTMLNode_Update(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestHTMLNode_Remove(t *testing.T) {
-	t.Run("Remove on HTML node will set the dom node to undefined", func(t *testing.T) {
-		node := HTMLNode{}
-
-		err := node.Remove()
-
-		assert.NoError(t, err, "Remove should not error")
-		assert.Equal(t, js.Undefined(), node.domNode, "The node's dom node should be undefined")
-	})
 }
 
 func TestHTMLNode_ToString(t *testing.T) {
@@ -556,18 +516,6 @@ func TestNewTextNode(t *testing.T) {
 	})
 }
 
-func TestTextNode_Mount(t *testing.T) {
-	t.Run("Mount on Text node will set the dom node", func(t *testing.T) {
-		node := TextNode{}
-		domNode := js.Value{}
-
-		err := node.Mount(domNode)
-
-		assert.NoError(t, err, "Mount should not error")
-		assert.Equal(t, domNode, node.domNode, "The node's dom node should be mounted")
-	})
-}
-
 func TestTextNode_Update(t *testing.T) {
 	tcs := []struct {
 		scenario   string
@@ -604,17 +552,6 @@ func TestTextNode_Update(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestTextNode_Remove(t *testing.T) {
-	t.Run("Remove on Text node will set the dom node to undefined", func(t *testing.T) {
-		node := TextNode{}
-
-		err := node.Remove()
-
-		assert.NoError(t, err, "Remove should not error")
-		assert.Equal(t, js.Undefined(), node.domNode, "The node's dom node should be undefined")
-	})
 }
 
 func TestTextNode_ToString(t *testing.T) {

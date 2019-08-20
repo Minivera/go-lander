@@ -1,10 +1,11 @@
+// +build js,wasm
+
 package lander
 
 import (
 	"fmt"
 	"math/rand"
 	"strings"
-	"syscall/js"
 	"time"
 )
 
@@ -70,13 +71,15 @@ func hyperscript(tag string) (string, string, []string) {
 	return tagname, id, classes
 }
 
-func newHTMLElement(document js.Value, currentElement *HTMLNode) js.Value {
-	var domElement js.Value
+func newHTMLElement(document jsValue, currentElement *HTMLNode) jsValue {
+	var domElement jsValue
 	if currentElement.namespace != "" {
 		domElement = document.Call("createElementNS", currentElement.namespace, currentElement.Tag)
 	} else {
 		domElement = document.Call("createElement", currentElement.Tag)
 	}
+
+	domElement.Call("setAttribute", "data-lander-id", currentElement.id)
 
 	for key, value := range currentElement.Attributes {
 		domElement.Call("setAttribute", key, value)

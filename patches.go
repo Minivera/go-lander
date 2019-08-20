@@ -1,30 +1,32 @@
+// +build js,wasm
+
 package lander
 
 import (
 	"fmt"
 	"strings"
-	"syscall/js"
 )
 
 type patch interface {
-	execute(js.Value) error
+	execute(jsValue) error
 }
 
 type patchText struct {
-	parentDomNode    js.Value
-	oldNode, newNode Node
-	newText          string
+	parentDomNode            jsValue
+	parent, oldNode, newNode Node
+	newText                  string
 }
 
-func newPatchText(parent js.Value, old Node, text string) patch {
+func newPatchText(parent jsValue, parentNode, old Node, text string) patch {
 	return &patchText{
 		parentDomNode: parent,
+		parent:        parentNode,
 		oldNode:       old,
 		newText:       text,
 	}
 }
 
-func (p *patchText) execute(document js.Value) error {
+func (p *patchText) execute(document jsValue) error {
 	err := p.oldNode.Update(map[string]interface{}{
 		"text": p.newText,
 	})
@@ -32,35 +34,45 @@ func (p *patchText) execute(document js.Value) error {
 		return err
 	}
 
-	oldText, ok := p.oldNode.(*TextNode)
-	if !ok {
-		return fmt.Errorf("old node was not of type TextNode, %T given instead", p.oldNode)
+	index := 0
+	for _, node := range p.parent.GetChildren() {
+		if node == p.oldNode {
+			break
+		}
+		index++
 	}
 
-	newNode := document.Call("createTextNode", p.newText)
-	p.parentDomNode.Call("replaceChild", newNode, oldText.domNode)
-
-	err = p.newNode.Mount(newNode)
-	if err != nil {
-		return err
+	if index >= len(p.parent.GetChildren()) {
+		return fmt.Errorf("could not find the child in the parent")
 	}
+
+	domNode := p.parentDomNode.Get("childNodes").Index(index)
+	if !domNode.Truthy() {
+		return fmt.Errorf("could not find node at index %d for id [data-lander-id=%d]", index, p.parent.ID())
+	}
+
+	domNode.Set("nodeValue", p.newText)
 
 	return nil
 }
 
-type patchHtml struct {
+type patchHTML struct {
 	oldNode, newNode Node
 }
 
-func newPatchHtml(old, new Node) patch {
-	return &patchHtml{
+func newPatchHTML(old, new Node) patch {
+	return &patchHTML{
 		oldNode: old,
 		newNode: new,
 	}
 }
 
-func (p *patchHtml) execute(_ js.Value) error {
+func (p *patchHTML) execute(document jsValue) error {
 	newHtml, ok := p.newNode.(*HTMLNode)
+	if !ok {
+		return fmt.Errorf("new node was not of type HTMLNode, %T given instead", p.newNode)
+	}
+	oldHtml, ok := p.oldNode.(*HTMLNode)
 	if !ok {
 		return fmt.Errorf("old node was not of type HTMLNode, %T given instead", p.oldNode)
 	}
@@ -84,15 +96,23 @@ func (p *patchHtml) execute(_ js.Value) error {
 		return err
 	}
 
+	newNode := newHTMLElement(document, oldHtml)
+	oldNode := document.Call("querySelector", fmt.Sprintf(`[data-lander-id="%d"]`, p.oldNode.ID()))
+	if !oldNode.Truthy() {
+		return fmt.Errorf("could not find node for id [data-lander-id=%d]", p.oldNode.ID())
+	}
+
+	document.Call("replaceChild", newNode, oldNode)
+
 	return nil
 }
 
 type patchInsert struct {
-	parentDomNode   js.Value
+	parentDomNode   jsValue
 	parent, newNode Node
 }
 
-func newPatchInsert(parentElem js.Value, parent, new Node) patch {
+func newPatchInsert(parentElem jsValue, parent, new Node) patch {
 	return &patchInsert{
 		parentDomNode: parentElem,
 		parent:        parent,
@@ -100,25 +120,18 @@ func newPatchInsert(parentElem js.Value, parent, new Node) patch {
 	}
 }
 
-func (p *patchInsert) execute(document js.Value) error {
-	println("inserting children")
+func (p *patchInsert) execute(document jsValue) error {
 	err := p.parent.InsertChildren(p.newNode, -1)
 	if err != nil {
 		println(err)
 		return err
 	}
-	println("children inserted")
 
-	println(fmt.Sprintf("parent node: %# v", p.parent))
-	println(fmt.Sprintf("new node: %# v", p.newNode))
-
-	var domElement js.Value
+	var domElement jsValue
 	switch typedNode := p.newNode.(type) {
 	case *HTMLNode:
-		println("insert html node")
 		domElement = newHTMLElement(document, typedNode)
 	case *TextNode:
-		println("insert text node")
 		domElement = document.Call("createTextNode", typedNode.Text)
 	default:
 		// Ignore anything that's not dom related
@@ -127,20 +140,15 @@ func (p *patchInsert) execute(document js.Value) error {
 
 	p.parentDomNode.Call("appendChild", domElement)
 
-	err = p.newNode.Mount(domElement)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
 type patchRemove struct {
-	parentDomNode   js.Value
+	parentDomNode   jsValue
 	parent, oldNode Node
 }
 
-func newPatchRemove(parentElem js.Value, parent, old Node) patch {
+func newPatchRemove(parentElem jsValue, parent, old Node) patch {
 	return &patchRemove{
 		parentDomNode: parentElem,
 		parent:        parent,
@@ -148,33 +156,45 @@ func newPatchRemove(parentElem js.Value, parent, old Node) patch {
 	}
 }
 
-func (p *patchRemove) execute(document js.Value) error {
+func (p *patchRemove) execute(document jsValue) error {
+	index := 0
+	for _, node := range p.parent.GetChildren() {
+		if node == p.oldNode {
+			break
+		}
+		index++
+	}
+
+	if index >= len(p.parent.GetChildren()) {
+		return fmt.Errorf("could not find the child in the parent")
+	}
+
+	domNode := p.parentDomNode.Get("childNodes").Index(index)
+	if !domNode.Truthy() {
+		return fmt.Errorf("could not find node at index %d for id [data-lander-id=%d]", index, p.parent.ID())
+	}
+
 	err := p.parent.RemoveChildren(p.oldNode)
 	if err != nil {
 		return err
 	}
 
-	switch typedNode := p.oldNode.(type) {
+	switch p.oldNode.(type) {
 	case *HTMLNode:
-		p.parentDomNode.Call("removeChild", typedNode.domNode)
+		p.parentDomNode.Call("removeChild", domNode)
 	case *TextNode:
-		p.parentDomNode.Call("removeChild", typedNode.domNode)
-	}
-
-	err = p.oldNode.Remove()
-	if err != nil {
-		return err
+		p.parentDomNode.Call("removeChild", domNode)
 	}
 
 	return nil
 }
 
 type patchReplace struct {
-	parentDomNode            js.Value
+	parentDomNode            jsValue
 	parent, newNode, oldNode Node
 }
 
-func newPatchReplace(parentElem js.Value, parent, old, new Node) patch {
+func newPatchReplace(parentElem jsValue, parent, old, new Node) patch {
 	return &patchReplace{
 		parentDomNode: parentElem,
 		parent:        parent,
@@ -183,7 +203,24 @@ func newPatchReplace(parentElem js.Value, parent, old, new Node) patch {
 	}
 }
 
-func (p *patchReplace) execute(document js.Value) error {
+func (p *patchReplace) execute(document jsValue) error {
+	index := 0
+	for _, node := range p.parent.GetChildren() {
+		if node == p.oldNode {
+			break
+		}
+		index++
+	}
+
+	if index >= len(p.parent.GetChildren()) {
+		return fmt.Errorf("could not find the child in the parent")
+	}
+
+	domNode := p.parentDomNode.Get("childNodes").Index(index)
+	if !domNode.Truthy() {
+		return fmt.Errorf("could not find node at index %d for id [data-lander-id=%d]", index, p.parent.ID())
+	}
+
 	err := p.parent.ReplaceChildren(p.oldNode, p.newNode)
 	if err != nil {
 		return err
@@ -193,31 +230,11 @@ func (p *patchReplace) execute(document js.Value) error {
 	case *HTMLNode:
 		domElement := newHTMLElement(document, typedNode)
 
-		oldHtml, ok := p.oldNode.(*HTMLNode)
-		if !ok {
-			return fmt.Errorf("old node was not of type HTMLNode, %T given instead", p.oldNode)
-		}
-
-		p.parentDomNode.Call("replaceChild", oldHtml.domNode, domElement)
-
-		err := p.oldNode.Mount(domElement)
-		if err != nil {
-			return err
-		}
+		p.parentDomNode.Call("replaceChild", domNode, domElement)
 	case *TextNode:
 		domElement := document.Call("createTextNode", typedNode.Text)
 
-		p.parentDomNode.Call("replaceChild", typedNode.domNode, domElement)
-
-		err := p.oldNode.Mount(domElement)
-		if err != nil {
-			return err
-		}
-	}
-
-	err = p.oldNode.Remove()
-	if err != nil {
-		return err
+		p.parentDomNode.Call("replaceChild", domNode, domElement)
 	}
 
 	return nil

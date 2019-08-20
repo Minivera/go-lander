@@ -1,20 +1,19 @@
+// +build js,wasm
+
 package lander
 
 import (
 	"fmt"
 	"sort"
 	"strings"
-	"syscall/js"
 )
 
 type Node interface {
 	ID() uint64
 	SetID(uint64)
 	Create(uint64) error
-	Mount(js.Value) error
 	Position(parent, next, prev Node) error
 	Update(map[string]interface{}) error
-	Remove() error
 	Render() error
 	ToString() string
 	GetChildren() []Node
@@ -43,10 +42,6 @@ func (n *baseNode) Create(id uint64) error {
 	return nil
 }
 
-func (n *baseNode) Mount(newNode js.Value) error {
-	return nil
-}
-
 func (n *baseNode) Position(parent, next, prev Node) error {
 	n.Parent = parent
 	n.NextSibling = next
@@ -55,10 +50,6 @@ func (n *baseNode) Position(parent, next, prev Node) error {
 }
 
 func (n *baseNode) Update(newAttributes map[string]interface{}) error {
-	return nil
-}
-
-func (n *baseNode) Remove() error {
 	return nil
 }
 
@@ -91,7 +82,6 @@ type FunctionComponent func(attributes map[string]interface{}, children []Node) 
 type HTMLNode struct {
 	baseNode
 
-	domNode     js.Value
 	namespace   string
 	activeClass string
 
@@ -129,11 +119,6 @@ func newHTMLNode(tag, id string, classes []string, attributes map[string]interfa
 	}, nil
 }
 
-func (n *HTMLNode) Mount(newNode js.Value) error {
-	n.domNode = newNode
-	return nil
-}
-
 func (n *HTMLNode) Update(newAttributes map[string]interface{}) error {
 	attrs, events, err := extractAttributes(newAttributes)
 	if err != nil {
@@ -153,11 +138,6 @@ func (n *HTMLNode) Update(newAttributes map[string]interface{}) error {
 	n.Attributes = attrs
 	n.EventListeners = events
 
-	return nil
-}
-
-func (n *HTMLNode) Remove() error {
-	n.domNode = js.Undefined()
 	return nil
 }
 
@@ -280,7 +260,6 @@ func (n *HTMLNode) Clone() Node {
 		baseNode: baseNode{
 			id: n.id,
 		},
-		domNode:        n.domNode,
 		namespace:      n.namespace,
 		Tag:            n.Tag,
 		DomID:          n.DomID,
@@ -310,8 +289,6 @@ func (n *HTMLNode) SelectorStyle(selector, styling string) *HTMLNode {
 type TextNode struct {
 	baseNode
 
-	domNode js.Value
-
 	Text string
 }
 
@@ -319,11 +296,6 @@ func newTextNode(text string) *TextNode {
 	return &TextNode{
 		Text: text,
 	}
-}
-
-func (n *TextNode) Mount(newNode js.Value) error {
-	n.domNode = newNode
-	return nil
 }
 
 func (n *TextNode) Update(newAttributes map[string]interface{}) error {
@@ -338,11 +310,6 @@ func (n *TextNode) Update(newAttributes map[string]interface{}) error {
 	return nil
 }
 
-func (n *TextNode) Remove() error {
-	n.domNode = js.Undefined()
-	return nil
-}
-
 func (n *TextNode) ToString() string {
 	return n.Text
 }
@@ -352,8 +319,7 @@ func (n *TextNode) Clone() Node {
 		baseNode: baseNode{
 			id: n.id,
 		},
-		domNode: n.domNode,
-		Text:    n.Text,
+		Text: n.Text,
 	}
 }
 

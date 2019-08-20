@@ -1,3 +1,5 @@
+// +build js,wasm
+
 package lander
 
 import (
@@ -13,6 +15,14 @@ import (
 	"github.com/tdewolff/minify/v2/css"
 )
 
+type jsValue interface {
+	Call(string, ...interface{}) js.Value
+	Get(string) js.Value
+	Index(int) js.Value
+	Set(string, interface{})
+	Truthy() bool
+}
+
 var document js.Value
 
 func init() {
@@ -20,9 +30,8 @@ func init() {
 }
 
 type DomEnvironment struct {
-	root        string
-	rootElement js.Value
-	tree        Node
+	root string
+	tree Node
 
 	instancesToHash map[uint64]Node
 	eventsToHash    map[uint64]*wasmEvent
@@ -112,13 +121,11 @@ func (e *DomEnvironment) Update() error {
 }
 
 func (e *DomEnvironment) buildNodeRecursively(currentNode Node, positionString string) error {
-	println(fmt.Sprintf("type of node to build %T", currentNode))
 	if currentNode == nil {
 		return nil
 	}
 
 	id := hashPosition(positionString)
-	println(fmt.Sprintf("Position string %s, hashed id %d", positionString, id))
 
 	if _, ok := e.instancesToHash[id]; !ok {
 		err := currentNode.Create(id)
@@ -178,12 +185,12 @@ func (e *DomEnvironment) buildNodeRecursively(currentNode Node, positionString s
 }
 
 func (e *DomEnvironment) mountToDom(rootElement string, vTree Node) error {
-	e.rootElement = document.Call("querySelector", rootElement)
-	if !e.rootElement.Truthy() {
+	rootElem := document.Call("querySelector", rootElement)
+	if !rootElem.Truthy() {
 		return fmt.Errorf("failed to find mount parent using query selector %q", rootElement)
 	}
 
-	styles, err := e.recursivelyMount(e.rootElement, vTree)
+	styles, err := e.recursivelyMount(rootElem, vTree)
 	if err != nil {
 		return err
 	}
@@ -208,7 +215,7 @@ func (e *DomEnvironment) mountToDom(rootElement string, vTree Node) error {
 	return nil
 }
 
-func (e *DomEnvironment) recursivelyMount(lastElement js.Value, currentNode Node) ([]string, error) {
+func (e *DomEnvironment) recursivelyMount(lastElement jsValue, currentNode Node) ([]string, error) {
 	if currentNode == nil {
 		return []string{}, nil
 	}
@@ -252,11 +259,6 @@ func (e *DomEnvironment) recursivelyMount(lastElement js.Value, currentNode Node
 		domElement = document.Call("createTextNode", typedNode.Text)
 	}
 
-	err := currentNode.Mount(domElement)
-	if err != nil {
-		return styles, err
-	}
-
 	for _, child := range currentNode.GetChildren() {
 		if child == nil {
 			continue
@@ -280,7 +282,12 @@ func (e *DomEnvironment) recursivelyMount(lastElement js.Value, currentNode Node
 }
 
 func (e *DomEnvironment) patchDom(tree Node) error {
-	err := e.generatePatches(nil, e.tree, tree, e.rootElement)
+	rootElem := document.Call("querySelector", e.root)
+	if !rootElem.Truthy() {
+		return fmt.Errorf("failed to find mount parent using query selector %q", rootElem)
+	}
+
+	err := e.generatePatches(nil, e.tree, tree, rootElem)
 	if err != nil {
 		return err
 	}
@@ -295,10 +302,16 @@ func (e *DomEnvironment) patchDom(tree Node) error {
 	return nil
 }
 
-func (e *DomEnvironment) generatePatches(prev, old, new Node, lastDomElement js.Value) error {
+func (e *DomEnvironment) generatePatches(prev, old, new Node, lastDomElement jsValue) error {
 	domElement := lastDomElement
 	if node, ok := old.(*HTMLNode); ok {
-		domElement = node.domNode
+		domElement = document.Call("querySelector", fmt.Sprintf(`[data-lander-id="%d"]`, node.id))
+		if !domElement.Truthy() {
+			return fmt.Errorf(
+				"failed to find mount parent using query selector %s",
+				fmt.Sprintf(`[data-lander-id="%d"]`, node.id),
+			)
+		}
 	}
 
 	// If the old is missing, we need to insert the new node
@@ -311,13 +324,6 @@ func (e *DomEnvironment) generatePatches(prev, old, new Node, lastDomElement js.
 	if new == nil {
 		e.patches = append(e.patches, newPatchRemove(lastDomElement, prev, old))
 		return nil
-	}
-
-	if old.ID() == 8948869285120884552 {
-		println("old is at postion 2")
-	}
-	if new.ID() == 8948869285120884552 {
-		println("new is at postion 2")
 	}
 
 	// If both nodes are identical, run on children
@@ -340,11 +346,11 @@ func (e *DomEnvironment) generatePatches(prev, old, new Node, lastDomElement js.
 	// If both nodes are similar
 	if old.ID() == new.ID() && reflect.TypeOf(old) == reflect.TypeOf(new) {
 		if val, ok := new.(*TextNode); ok {
-			e.patches = append(e.patches, newPatchText(lastDomElement, old, val.Text))
+			e.patches = append(e.patches, newPatchText(lastDomElement, prev, old, val.Text))
 			return nil
 		}
 		if _, ok := new.(*HTMLNode); ok {
-			e.patches = append(e.patches, newPatchHtml(old, new))
+			e.patches = append(e.patches, newPatchHTML(old, new))
 		}
 
 		for index, child := range old.GetChildren() {
