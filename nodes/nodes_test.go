@@ -1,6 +1,7 @@
+//go:build js && wasm
 // +build js,wasm
 
-package lander
+package nodes
 
 import (
 	"testing"
@@ -271,7 +272,7 @@ func TestHTMLNode_Update(t *testing.T) {
 				assert.Error(t, err, "Update should error")
 			} else {
 				assert.NoError(t, err, "Update should not error")
-				assert.Equal(t, tc.expected, node.Attributes, "Attributes should be properly changed")
+				assert.Equal(t, tc.expected, node.Attributes, "Properties should be properly changed")
 				assert.Equal(t, tc.expectedID, node.DomID, "ID should be properly changed")
 				assert.Equal(t, tc.expectedClasses, node.Classes, "Classes should be properly changed")
 			}
@@ -787,7 +788,7 @@ func TestNewFuncNode(t *testing.T) {
 		}
 		node := newFuncNode(comp, attributes, children)
 
-		assert.Equal(t, attributes, node.Attributes, "Attributes should be equal")
+		assert.Equal(t, attributes, node.Attributes, "Properties should be equal")
 		assert.Equal(t, children, node.givenChildren, "Children should be equal")
 	})
 }
@@ -798,13 +799,13 @@ func TestFuncNode_Update(t *testing.T) {
 			"test": "test",
 		}
 		node := FuncNode{
-			Attributes: map[string]interface{}{},
+			Properties: map[string]interface{}{},
 		}
 
 		err := node.Update(attributes)
 
 		assert.NoError(t, err, "Update should not error")
-		assert.Equal(t, attributes, node.Attributes, "Attributes should be equal")
+		assert.Equal(t, attributes, node.Properties, "Properties should be equal")
 	})
 }
 
@@ -815,7 +816,7 @@ func TestFuncNode_Render(t *testing.T) {
 			return children
 		}
 		node := FuncNode{
-			Attributes:    map[string]interface{}{},
+			Properties:    map[string]interface{}{},
 			givenChildren: []Node{},
 			factory:       comp,
 		}
@@ -853,7 +854,7 @@ func TestFuncNode_GetChildren(t *testing.T) {
 func TestFuncNode_Clone(t *testing.T) {
 	t.Run("Clone will make a deep copy of the node", func(t *testing.T) {
 		node := &FuncNode{
-			Attributes: map[string]interface{}{
+			Properties: map[string]interface{}{
 				"test": "test",
 			},
 			givenChildren: []Node{&mockNode{}},

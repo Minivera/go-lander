@@ -1,14 +1,15 @@
-// +build js,wasm
+//go:build js && wasm
 
-package lander
+package diffing
 
 import (
 	"fmt"
 	"strings"
+	"syscall/js"
 )
 
-type patch interface {
-	execute(jsValue) error
+type Patch interface {
+	Execute(js.Value) error
 }
 
 type patchText struct {

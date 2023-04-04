@@ -1,6 +1,7 @@
+//go:build js && wasm
 // +build js,wasm
 
-package lander
+package diffing
 
 import (
 	"syscall/js"
@@ -142,7 +143,7 @@ func TestPatchText_Execute(t *testing.T) {
 				oldHtml, ok := tc.oldNode.(*HTMLNode)
 				assert.True(t, ok)
 
-				assert.Equal(t, newHtml.Attributes, oldHtml.Attributes, "The attributes of both nodes should be equal")
+				assert.Equal(t, newHtml.Properties, oldHtml.Properties, "The attributes of both nodes should be equal")
 				assert.Equal(t, newHtml.Classes, oldHtml.Classes, "The class of both nodes should be equal")
 				assert.Equal(t, newHtml.DomID, oldHtml.DomID, "The dom id of both nodes should be equal")
 				document.AssertExpectations(t)

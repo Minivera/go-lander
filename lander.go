@@ -1,33 +1,27 @@
-// +build js,wasm
+//go:build js && wasm
 
 package lander
 
-func Html(tag string, attributes map[string]interface{}, children []Node) *HTMLNode {
-	tagname, id, classes := hyperscript(tag)
+import "github.com/minivera/go-lander/nodes"
 
-	node, err := newHTMLNode(tagname, id, classes, attributes, children)
-	if err != nil {
-		// We don't want to return an error for ease of use, panic instead
-		panic(err)
-	}
-
-	return node
+func Html(tag string, attributes map[string]interface{}, children []nodes.Node) *nodes.HTMLNode {
+	return nodes.NewHTMLNode(tag, attributes, children)
 }
 
-func Svg(tag string, attributes map[string]interface{}, children []Node) *HTMLNode {
+func Svg(tag string, attributes map[string]interface{}, children []nodes.Node) *nodes.HTMLNode {
 	node := Html(tag, attributes, children)
-	node.namespace = "http://www.w3.org/2000/svg"
+	node.Namespace = "http://www.w3.org/2000/svg"
 	return node
 }
 
-func Text(text string) *TextNode {
-	return newTextNode(text)
+func Text(text string) *nodes.TextNode {
+	return nodes.NewTextNode(text)
 }
 
-func Fragment(children []Node) *FragmentNode {
-	return newFragmentNode(children)
+func Fragment(children []nodes.Node) *nodes.FragmentNode {
+	return nodes.NewFragmentNode(children)
 }
 
-func Component(factory FunctionComponent, attributes map[string]interface{}, children []Node) *FuncNode {
-	return newFuncNode(factory, attributes, children)
+func Component[Props map[string]interface{}](factory nodes.FunctionComponent[Props], attributes Props, children []nodes.Node) *nodes.FuncNode[Props] {
+	return nodes.NewFuncNode[Props](factory, attributes, children)
 }

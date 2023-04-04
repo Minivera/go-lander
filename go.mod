@@ -1,11 +1,18 @@
 module github.com/minivera/go-lander
 
+go 1.20
+
 require (
-	github.com/OneOfOne/xxhash v1.2.5 // indirect
 	github.com/cespare/xxhash v1.1.0
-	github.com/google/go-cmp v0.3.1
-	github.com/spaolacci/murmur3 v1.1.0 // indirect
-	github.com/stretchr/testify v1.3.0
-	github.com/tdewolff/minify/v2 v2.4.0
-	golang.org/x/sys v0.0.0-20190426135247-a129542de9ae // indirect
+	github.com/google/go-cmp v0.5.9
+	github.com/stretchr/testify v1.8.2
+	github.com/tdewolff/minify/v2 v2.12.5
+)
+
+require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/stretchr/objx v0.5.0 // indirect
+	github.com/tdewolff/parse/v2 v2.6.5 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

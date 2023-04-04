@@ -1,6 +1,7 @@
+//go:build js && wasm
 // +build js,wasm
 
-package lander
+package utils
 
 import (
 	"fmt"
@@ -60,7 +61,7 @@ func TestExtractAttributes(t *testing.T) {
 				assert.Equal(t, tc.err, err, "Should return an error of type", tc.err)
 			} else {
 				assert.Nil(t, err, "Should not return an error")
-				assert.Equal(t, tc.expectedAttributes, attributes, "Attributes should equal the expected scenario")
+				assert.Equal(t, tc.expectedAttributes, attributes, "Properties should equal the expected scenario")
 
 				for _, value := range tc.expectedEventListeners {
 					assert.NotNil(t, listeners[value], "Listeners should equal the expected scenario")

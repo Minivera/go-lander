@@ -1,6 +1,7 @@
+//go:build js && wasm
 // +build js,wasm
 
-package lander
+package events
 
 import (
 	"syscall/js"
