@@ -18,11 +18,13 @@ func NewTextNode(text string) *TextNode {
 
 func (n *TextNode) Update(newText string) {
 	n.Text = newText
+
+	n.DomNode.Set("nodeValue", n.Text)
 }
 
 func (n *TextNode) Mount(domNode js.Value) {
 	n.DomNode = domNode
-	// TODO: Apply everything
+	n.DomNode.Set("nodeValue", n.Text)
 }
 
 func (n *TextNode) ToString() string {

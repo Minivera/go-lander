@@ -1,6 +1,6 @@
 //go:build js && wasm
 
-package utils
+package nodes
 
 import (
 	"fmt"
@@ -9,10 +9,12 @@ import (
 	"time"
 
 	lEvents "github.com/minivera/go-lander/events"
-	"github.com/minivera/go-lander/nodes"
 )
 
-func ExtractAttributes(attributes map[string]interface{}) (attrs map[string]string, events map[string]lEvents.EventListener) {
+func ExtractAttributes(attributes map[string]interface{}) (map[string]string, map[string]*lEvents.EventListener) {
+	attrs := map[string]string{}
+	events := map[string]*lEvents.EventListener{}
+
 	for key, value := range attributes {
 		switch casted := value.(type) {
 		case string:
@@ -24,9 +26,13 @@ func ExtractAttributes(attributes map[string]interface{}) (attrs map[string]stri
 			if casted {
 				attrs[key] = ""
 			}
-		case lEvents.EventListener:
-			events[key] = casted
+		case func(*lEvents.DOMEvent) error:
+			events[key] = &lEvents.EventListener{
+				Name: key,
+				Func: casted,
+			}
 		default:
+			fmt.Printf("Attribute not supported %s, %T\n", key, value)
 			// attributes only support vars of type string, bool, int or EventListener
 			// Any other attribute is ignored to avoid panicking.
 			continue
@@ -36,7 +42,7 @@ func ExtractAttributes(attributes map[string]interface{}) (attrs map[string]stri
 	return attrs, events
 }
 
-func NewHTMLElement(document js.Value, currentElement *nodes.HTMLNode) js.Value {
+func NewHTMLElement(document js.Value, currentElement *HTMLNode) js.Value {
 	var domElement js.Value
 	if currentElement.Namespace != "" {
 		domElement = document.Call("createElementNS", currentElement.Namespace, currentElement.Tag)

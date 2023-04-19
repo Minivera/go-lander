@@ -4,20 +4,15 @@ package lander
 
 import (
 	"fmt"
-	"runtime/debug"
 	"strings"
 	"syscall/js"
 
-	"github.com/minivera/go-lander/events"
-
-	"github.com/minivera/go-lander/diffing"
-
-	"github.com/minivera/go-lander/utils"
-
-	"github.com/minivera/go-lander/nodes"
-
 	"github.com/tdewolff/minify/v2"
 	"github.com/tdewolff/minify/v2/css"
+
+	"github.com/minivera/go-lander/diffing"
+	"github.com/minivera/go-lander/events"
+	"github.com/minivera/go-lander/nodes"
 )
 
 var document js.Value
@@ -28,38 +23,27 @@ func init() {
 
 type DomEnvironment struct {
 	root string
-	app  nodes.FuncNode[map[string]interface{}]
 
+	app  nodes.Node
 	tree nodes.Node
 }
 
-func New(root string, rootNode nodes.FuncNode[map[string]interface{}]) *DomEnvironment {
+func RenderInto(rootNode *nodes.FuncNode, root string) (*DomEnvironment, error) {
 	env := &DomEnvironment{
 		root: root,
 		app:  rootNode,
 	}
 
-	return env
-}
-
-func (e *DomEnvironment) Render() error {
-	e.app.Render()
-	e.tree = e.app.RenderResult
-
-	e.recursivelyPosition(e.tree)
-	err := e.mountToDom()
+	err := env.renderIntoRoot()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return env, nil
 }
 
 func (e *DomEnvironment) Update() error {
-	e.app.Render()
-	newTree := e.app.RenderResult
-
-	err := e.patchDom(newTree)
+	err := e.patchDom()
 	if err != nil {
 		return err
 	}
@@ -67,51 +51,14 @@ func (e *DomEnvironment) Update() error {
 	return nil
 }
 
-func (e *DomEnvironment) recursivelyPosition(currentNode nodes.Node) {
-	if currentNode == nil {
-		panic("no component provided to lander environment")
-	}
-
-	var children []nodes.Node
-	switch typedNode := currentNode.(type) {
-	case *nodes.TextNode:
-		return
-	case *nodes.HTMLNode:
-		children = typedNode.Children
-	}
-
-	for index, child := range children {
-		if child == nil {
-			continue
-		}
-
-		if len(children) <= 1 {
-			child.Position(currentNode, nil, nil)
-			continue
-		}
-
-		if index <= 0 {
-			child.Position(currentNode, children[index+1], nil)
-		} else if index < len(children)-1 {
-			child.Position(currentNode, children[index+1], children[index-1])
-		} else {
-			child.Position(currentNode, nil, children[index-1])
-		}
-
-		e.recursivelyPosition(child)
-	}
-}
-
-func (e *DomEnvironment) mountToDom() error {
+func (e *DomEnvironment) renderIntoRoot() error {
 	rootElem := document.Call("querySelector", e.root)
 	if !rootElem.Truthy() {
 		return fmt.Errorf("failed to find mount parent using query selector %q", e.root)
 	}
 
-	styles, err := e.recursivelyMount(rootElem, e.tree)
-	if err != nil {
-		return err
-	}
+	e.tree = e.generateTree(e.app)
+	styles := e.recursivelyMount(rootElem, e.tree)
 
 	m := minify.New()
 	m.AddFunc("text/css", css.Minify)
@@ -133,9 +80,9 @@ func (e *DomEnvironment) mountToDom() error {
 	return nil
 }
 
-func (e *DomEnvironment) recursivelyMount(lastElement js.Value, currentNode nodes.Node) ([]string, error) {
+func (e *DomEnvironment) recursivelyMount(lastElement js.Value, currentNode nodes.Node) []string {
 	if currentNode == nil {
-		return []string{}, nil
+		return []string{}
 	}
 
 	add := false
@@ -146,13 +93,14 @@ func (e *DomEnvironment) recursivelyMount(lastElement js.Value, currentNode node
 	switch typedNode := currentNode.(type) {
 	case *nodes.HTMLNode:
 		add = true
-		domElement = utils.NewHTMLElement(document, typedNode)
+		domElement = nodes.NewHTMLElement(document, typedNode)
 		typedNode.Mount(domElement)
 
-		for key, listener := range typedNode.EventListeners {
-			domElement.Call("addEventListener", key, js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				return e.handleDOMEvent(listener, this, args)
-			}))
+		for event, listener := range typedNode.EventListeners {
+			listener.Wrapper = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				return e.handleDOMEvent(listener.Func, this, args)
+			})
+			domElement.Call("addEventListener", event, listener.Wrapper)
 		}
 
 		children = typedNode.Children
@@ -164,6 +112,8 @@ func (e *DomEnvironment) recursivelyMount(lastElement js.Value, currentNode node
 		add = true
 		domElement = document.Call("createTextNode", typedNode.Text)
 		typedNode.Mount(domElement)
+	default:
+		return []string{}
 	}
 
 	for _, child := range children {
@@ -171,10 +121,9 @@ func (e *DomEnvironment) recursivelyMount(lastElement js.Value, currentNode node
 			continue
 		}
 
-		childStyles, err := e.recursivelyMount(domElement, child)
-		if err != nil {
-			return styles, err
-		}
+		child.Position(currentNode)
+
+		childStyles := e.recursivelyMount(domElement, child)
 
 		for _, style := range childStyles {
 			styles = append(styles, style)
@@ -185,16 +134,16 @@ func (e *DomEnvironment) recursivelyMount(lastElement js.Value, currentNode node
 		lastElement.Call("appendChild", domElement)
 	}
 
-	return styles, nil
+	return styles
 }
 
-func (e *DomEnvironment) patchDom(newTree nodes.Node) error {
+func (e *DomEnvironment) patchDom() error {
 	rootElem := document.Call("querySelector", e.root)
 	if !rootElem.Truthy() {
 		return fmt.Errorf("failed to find mount parent using query selector %q", rootElem)
 	}
 
-	patches, err := diffing.GeneratePatches(nil, e.tree, newTree)
+	patches, err := diffing.GeneratePatches(e.handleDOMEvent, nil, e.tree, e.generateTree(e.app))
 	if err != nil {
 		return err
 	}
@@ -209,83 +158,63 @@ func (e *DomEnvironment) patchDom(newTree nodes.Node) error {
 	return nil
 }
 
-// TODO: This code has been borrowed from vugu, find a way to make it our own
-func (e *DomEnvironment) handleDOMEvent(listener events.EventListener, this js.Value, args []js.Value) interface{} {
+func (e *DomEnvironment) generateTree(currentNode nodes.Node) nodes.Node {
+	var toReturn nodes.Node
+	var children []nodes.Node
+
+	// Check the current node's type
+	switch typedNode := currentNode.(type) {
+	case *nodes.FuncNode:
+		// If the current node is a func node, we want to render it and "forget" it exists
+		// replacing it with whatever it rendered.
+		toReturn = typedNode.Render()
+		children = []nodes.Node{toReturn}
+	case *nodes.HTMLNode:
+		// For all other nodes, use it as the node to return. We should get a tree of only "HTML" nodes.
+		toReturn = typedNode
+		children = typedNode.Children
+	default:
+		toReturn = typedNode
+	}
+
+	// Render all the children of the current node, if any
+	for i, child := range children {
+		// Render the current children, get the result
+		renderResult := e.generateTree(child)
+
+		if typedNode, ok := renderResult.(*nodes.FuncNode); ok {
+			// If the child was another function node, then we should recursively render it until we
+			// have a pure HTML node
+			child = e.generateTree(typedNode)
+		}
+
+		// If the current node is an HTML node, replace the child in its children array with
+		// the final child here. For most cases, that should do nothing, but for function nodes
+		// it should replace it with the real final result.
+		if typedNode, ok := currentNode.(*nodes.HTMLNode); ok {
+			typedNode.Children[i] = child
+		}
+	}
+
+	// Return the final node, we should only have a pure HTML tree here
+	return toReturn
+}
+
+func (e *DomEnvironment) handleDOMEvent(listener events.EventListenerFunc, this js.Value, args []js.Value) interface{} {
 	if len(args) < 1 {
 		panic(fmt.Errorf("args should be at least 1 element, instead was: %#v", args))
 	}
 
-	// TODO: give this more thought - but for now we just do a non-blocking push to the
-	// eventWaitCh, telling the render loop that a render is required, but if a bunch
-	// of them stack up we don't wait
-	defer func() {
-
-		if r := recover(); r != nil {
-			fmt.Println("handleDOMEvent caught panic", r)
-			debug.PrintStack()
-
-			// in error case send false to tell event loop to exit
-			select {
-			case e.eventWaitCh <- false:
-			default:
-			}
-			return
-
-		}
-
-		// in normal case send true to the channel to tell the event loop it should render
-		select {
-		case e.eventWaitCh <- true:
-		default:
-		}
-	}()
-
 	jsEvent := args[0]
 
-	typeName := jsEvent.Get("type").String()
-
-	key := "data-lander-event-" + typeName + "-id"
-	funcHash := this.Get(key).String()
-	var funcID uint64
-	_, err := fmt.Sscanf(funcHash, "%d", &funcID)
-	if err != nil {
-		panic(fmt.Errorf("lander could not retreive and convert the dom event key for some reason, %v", err))
-	}
-
-	if funcID == 0 {
-		panic(fmt.Errorf("looking for %q on 'this' found %q which parsed into value 0 - cannot find the appropriate function to route to", key, funcHash))
-	}
-
-	eventDef, ok := e.eventsToHash[funcID]
-	if !ok {
-		panic(fmt.Errorf("nothing found in eventsToHash for %d", funcID))
-	}
-
-	var node Node
-	if val, ok := e.instancesToHash[eventDef.nodeHash]; ok {
-		node = val
-	} else {
-		fmt.Printf("could not find the virtual node associated with the dom event, maybe it was removed?")
-	}
-
-	event := &DOMEvent{
-		browserEvent: jsEvent,
-		this:         this,
-		//environment: e.
-	}
+	event := events.NewDOMEvent(jsEvent, this)
 
 	// acquire exclusive lock before we actually process event
-	e.eventRWMU.Lock()
-	defer e.eventRWMU.Unlock()
-	err = eventDef.listener(node, event)
+	event.Lock()
+	defer event.Unlock()
+	err := listener(event)
 	if err != nil {
 		// Return the error message
-		return err.Error()
-	}
-
-	err = e.Update()
-	if err != nil {
-		// Return the error message if we couldn't update
 		return err.Error()
 	}
 

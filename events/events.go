@@ -5,12 +5,16 @@ package events
 import (
 	"sync"
 	"syscall/js"
-
-	"github.com/minivera/go-lander/nodes"
 )
 
-// EventListener is the type definition for a DOM event in javascript.
-type EventListener func(nodes.Node, *DOMEvent) error
+// EventListenerFunc is the type definition for a DOM event in javascript.
+type EventListenerFunc func(*DOMEvent) error
+
+type EventListener struct {
+	Name    string
+	Func    EventListenerFunc
+	Wrapper js.Func
+}
 
 // DOMEvent is the base struct that contains the data for a DOM event triggered on the client.
 type DOMEvent struct {
@@ -18,6 +22,13 @@ type DOMEvent struct {
 
 	browserEvent js.Value
 	this         js.Value
+}
+
+func NewDOMEvent(browserEvent, this js.Value) *DOMEvent {
+	return &DOMEvent{
+		browserEvent: browserEvent,
+		this:         this,
+	}
 }
 
 // JSEvent returns the browser event value which contains what would usually be the first argument of an event listener.

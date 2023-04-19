@@ -1,44 +1,33 @@
 package nodes
 
-type FunctionComponent[Props map[string]interface{}] func(attributes Props, children []Node) Node
-
-type FuncNode[Props map[string]interface{}] struct {
+type FuncNode struct {
 	baseNode
 
-	factory       FunctionComponent[Props]
+	factory       FunctionComponent
 	givenChildren []Node
 
-	Properties   Props
-	RenderResult Node
+	Properties Props
 }
 
-func NewFuncNode[Props map[string]interface{}](factory FunctionComponent[Props], attributes map[string]interface{}, givenChildren []Node) *FuncNode[Props] {
-	return &FuncNode[Props]{
+func NewFuncNode(factory FunctionComponent, attributes Props, givenChildren []Node) *FuncNode {
+	return &FuncNode{
 		Properties:    attributes,
 		factory:       factory,
 		givenChildren: givenChildren,
 	}
 }
 
-func (n *FuncNode[Props]) Update(newAttributes Props, newChildren []Node) {
+func (n *FuncNode) Update(newAttributes Props, newChildren []Node) {
 	n.Properties = newAttributes
 	n.givenChildren = newChildren
 }
 
-func (n *FuncNode[Props]) Render() Node {
-	n.RenderResult = n.factory(n.Properties, n.givenChildren)
-
-	n.RenderResult.Render()
-
-	return n.RenderResult
+func (n *FuncNode) Render() Node {
+	return n.factory(n.Properties, n.givenChildren)
 }
 
-func (n *FuncNode[Props]) ToString() string {
-	return n.RenderResult.ToString()
-}
-
-func (n *FuncNode[Props]) Diff(other Node) bool {
-	otherAsFunc, ok := other.(*FuncNode[Props])
+func (n *FuncNode) Diff(other Node) bool {
+	otherAsFunc, ok := other.(*FuncNode)
 	if !ok {
 		return false
 	}

@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"strings"
 	"syscall/js"
+
+	"github.com/minivera/go-lander/events"
+	"github.com/minivera/go-lander/nodes"
 )
 
 type Patch interface {
@@ -13,246 +16,181 @@ type Patch interface {
 }
 
 type patchText struct {
-	parentDomNode            jsValue
-	parent, oldNode, newNode Node
-	newText                  string
+	parent  nodes.Node
+	oldNode *nodes.TextNode
+	newText string
 }
 
-func newPatchText(parent jsValue, parentNode, old Node, text string) patch {
+func newPatchText(parentNode nodes.Node, old *nodes.TextNode, text string) Patch {
 	return &patchText{
-		parentDomNode: parent,
-		parent:        parentNode,
-		oldNode:       old,
-		newText:       text,
+		parent:  parentNode,
+		oldNode: old,
+		newText: text,
 	}
 }
 
-func (p *patchText) execute(document jsValue) error {
-	err := p.oldNode.Update(map[string]interface{}{
-		"text": p.newText,
-	})
-	if err != nil {
-		return err
-	}
-
-	index := 0
-	for _, node := range p.parent.GetChildren() {
-		if node == p.oldNode {
-			break
-		}
-		index++
-	}
-
-	if index >= len(p.parent.GetChildren()) {
-		return fmt.Errorf("could not find the child in the parent")
-	}
-
-	domNode := p.parentDomNode.Get("childNodes").Index(index)
-	if !domNode.Truthy() {
-		return fmt.Errorf("could not find node at index %d for id [data-lander-id=%d]", index, p.parent.ID())
-	}
-
-	domNode.Set("nodeValue", p.newText)
+func (p *patchText) Execute(document js.Value) error {
+	p.oldNode.Update(p.newText)
 
 	return nil
 }
 
 type patchHTML struct {
-	oldNode, newNode Node
+	listenerFunc     func(listener events.EventListenerFunc, this js.Value, args []js.Value) interface{}
+	oldNode, newNode *nodes.HTMLNode
 }
 
-func newPatchHTML(old, new Node) patch {
+func newPatchHTML(
+	listenerFunc func(listener events.EventListenerFunc, this js.Value, args []js.Value) interface{},
+	old,
+	new *nodes.HTMLNode,
+) Patch {
 	return &patchHTML{
-		oldNode: old,
-		newNode: new,
+		listenerFunc: listenerFunc,
+		oldNode:      old,
+		newNode:      new,
 	}
 }
 
-func (p *patchHTML) execute(document jsValue) error {
-	newHtml, ok := p.newNode.(*HTMLNode)
-	if !ok {
-		return fmt.Errorf("new node was not of type HTMLNode, %T given instead", p.newNode)
-	}
-
-	// TODO: Find a way to bind new event listeners
-	newAttributes := make(map[string]interface{}, len(newHtml.Attributes)+len(newHtml.EventListeners)+2)
-	for key, value := range newHtml.Attributes {
+func (p *patchHTML) Execute(document js.Value) error {
+	newAttributes := make(map[string]interface{}, len(p.newNode.Attributes)+len(p.newNode.EventListeners)+2)
+	for key, value := range p.newNode.Attributes {
 		newAttributes[key] = value
 	}
 
-	// TODO: Fix the memory leak here when a node is removed, but not its event listeners
-	for key, value := range newHtml.EventListeners {
+	for key, value := range p.newNode.EventListeners {
 		newAttributes[key] = value
 	}
 
-	if newHtml.DomID != "" {
-		newAttributes["id"] = newHtml.DomID
+	if p.newNode.DomID != "" {
+		newAttributes["id"] = p.newNode.DomID
 	}
-	if len(newHtml.Classes) > 0 {
-		newAttributes["class"] = strings.Join(newHtml.Classes, " ")
-	}
-
-	err := p.oldNode.Update(newAttributes)
-	if err != nil {
-		return err
+	if len(p.newNode.Classes) > 0 {
+		newAttributes["class"] = strings.Join(p.newNode.Classes, " ")
 	}
 
-	oldHtml, ok := p.oldNode.(*HTMLNode)
-	if !ok {
-		return fmt.Errorf("new node was not of type HTMLNode, %T given instead", p.oldNode)
+	// Remove any event listeners using the direct attribute rather than addEventListener
+	for event, listener := range p.oldNode.EventListeners {
+		fmt.Printf("removing event in diffing\n %s", event)
+		p.oldNode.DomNode.Call("removeEventListener", event, listener.Wrapper)
 	}
 
-	oldNode := document.Call("querySelector", fmt.Sprintf(`[data-lander-id="%d"]`, p.oldNode.ID()))
-	if !oldNode.Truthy() {
-		return fmt.Errorf("could not find node for id [data-lander-id=%d]", p.oldNode.ID())
-	}
+	p.oldNode.Update(newAttributes)
 
-	// TODO: Find a way to clear the attributes on the dom node before setting the new ones
-	for key, value := range oldHtml.Attributes {
-		oldNode.Call("setAttribute", key, value)
-	}
-
-	// TODO: Find a way to clear the class list before adding to it
-	classList := oldNode.Get("classList")
-	for _, value := range oldHtml.Classes {
-		classList.Call("add", value)
-	}
-
-	if oldHtml.DomID != "" {
-		oldNode.Set("id", oldHtml.DomID)
+	// Add new event listeners using the attributes
+	for event, listener := range p.oldNode.EventListeners {
+		fmt.Printf("adding event in diffing\n %s", event)
+		listener.Wrapper = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			return p.listenerFunc(listener.Func, this, args)
+		})
+		p.oldNode.DomNode.Call("addEventListener", event, listener.Wrapper)
 	}
 
 	return nil
 }
 
 type patchInsert struct {
-	parentDomNode   jsValue
-	parent, newNode Node
+	parent, newNode nodes.Node
 }
 
-func newPatchInsert(parentElem jsValue, parent, new Node) patch {
+func newPatchInsert(parent, new nodes.Node) Patch {
 	return &patchInsert{
-		parentDomNode: parentElem,
-		parent:        parent,
-		newNode:       new,
+		parent:  parent,
+		newNode: new,
 	}
 }
 
-func (p *patchInsert) execute(document jsValue) error {
-	err := p.parent.InsertChildren(p.newNode, -1)
+func (p *patchInsert) Execute(document js.Value) error {
+	htmlParent, ok := p.parent.(*nodes.HTMLNode)
+	if !ok {
+		return nil
+	}
+
+	err := htmlParent.InsertChildren(p.newNode, -1)
 	if err != nil {
-		println(err)
 		return err
 	}
 
-	var domElement jsValue
+	var domElement js.Value
 	switch typedNode := p.newNode.(type) {
-	case *HTMLNode:
-		domElement = newHTMLElement(document, typedNode)
-	case *TextNode:
+	case *nodes.HTMLNode:
+		domElement = nodes.NewHTMLElement(document, typedNode)
+	case *nodes.TextNode:
 		domElement = document.Call("createTextNode", typedNode.Text)
 	default:
 		// Ignore anything that's not dom related
 		return nil
 	}
 
-	p.parentDomNode.Call("appendChild", domElement)
+	htmlParent.DomNode.Call("appendChild", domElement)
 
 	return nil
 }
 
 type patchRemove struct {
-	parentDomNode   jsValue
-	parent, oldNode Node
+	parent, oldNode nodes.Node
 }
 
-func newPatchRemove(parentElem jsValue, parent, old Node) patch {
+func newPatchRemove(parent, old nodes.Node) Patch {
 	return &patchRemove{
-		parentDomNode: parentElem,
-		parent:        parent,
-		oldNode:       old,
+		parent:  parent,
+		oldNode: old,
 	}
 }
 
-func (p *patchRemove) execute(document jsValue) error {
-	index := 0
-	for _, node := range p.parent.GetChildren() {
-		if node == p.oldNode {
-			break
-		}
-		index++
+func (p *patchRemove) Execute(document js.Value) error {
+	htmlParent, ok := p.parent.(*nodes.HTMLNode)
+	if !ok {
+		return nil
 	}
 
-	if index >= len(p.parent.GetChildren()) {
-		return fmt.Errorf("could not find the child in the parent")
-	}
-
-	domNode := p.parentDomNode.Get("childNodes").Index(index)
-	if !domNode.Truthy() {
-		return fmt.Errorf("could not find node at index %d for id [data-lander-id=%d]", index, p.parent.ID())
-	}
-
-	err := p.parent.RemoveChildren(p.oldNode)
+	err := htmlParent.RemoveChildren(p.oldNode)
 	if err != nil {
 		return err
 	}
 
-	switch p.oldNode.(type) {
-	case *HTMLNode:
-		p.parentDomNode.Call("removeChild", domNode)
-	case *TextNode:
-		p.parentDomNode.Call("removeChild", domNode)
+	switch typedNode := p.oldNode.(type) {
+	case *nodes.HTMLNode:
+		htmlParent.DomNode.Call("removeChild", typedNode.DomNode)
+	case *nodes.TextNode:
+		htmlParent.DomNode.Call("removeChild", typedNode.DomNode)
 	}
 
 	return nil
 }
 
 type patchReplace struct {
-	parentDomNode            jsValue
-	parent, newNode, oldNode Node
+	parent, newNode, oldNode nodes.Node
 }
 
-func newPatchReplace(parentElem jsValue, parent, old, new Node) patch {
+func newPatchReplace(parent, old, new nodes.Node) Patch {
 	return &patchReplace{
-		parentDomNode: parentElem,
-		parent:        parent,
-		newNode:       new,
-		oldNode:       old,
+		parent:  parent,
+		newNode: new,
+		oldNode: old,
 	}
 }
 
-func (p *patchReplace) execute(document jsValue) error {
-	index := 0
-	for _, node := range p.parent.GetChildren() {
-		if node == p.oldNode {
-			break
-		}
-		index++
+func (p *patchReplace) Execute(document js.Value) error {
+	htmlParent, ok := p.parent.(*nodes.HTMLNode)
+	if !ok {
+		return nil
 	}
 
-	if index >= len(p.parent.GetChildren()) {
-		return fmt.Errorf("could not find the child in the parent")
-	}
-
-	domNode := p.parentDomNode.Get("childNodes").Index(index)
-	if !domNode.Truthy() {
-		return fmt.Errorf("could not find node at index %d for id [data-lander-id=%d]", index, p.parent.ID())
-	}
-
-	err := p.parent.ReplaceChildren(p.oldNode, p.newNode)
+	err := htmlParent.ReplaceChildren(p.oldNode, p.newNode)
 	if err != nil {
 		return err
 	}
 
 	switch typedNode := p.newNode.(type) {
-	case *HTMLNode:
-		domElement := newHTMLElement(document, typedNode)
+	case *nodes.HTMLNode:
+		domElement := nodes.NewHTMLElement(document, typedNode)
 
-		p.parentDomNode.Call("replaceChild", domNode, domElement)
-	case *TextNode:
+		htmlParent.DomNode.Call("replaceChild", typedNode.DomNode, domElement)
+	case *nodes.TextNode:
 		domElement := document.Call("createTextNode", typedNode.Text)
 
-		p.parentDomNode.Call("replaceChild", domNode, domElement)
+		htmlParent.DomNode.Call("replaceChild", typedNode.DomNode, domElement)
 	}
 
 	return nil

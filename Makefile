@@ -19,7 +19,7 @@ test: update_glue
 	GOOS=js GOARCH=wasm go test -exec $(GOROOT)/misc/wasm/go_js_wasm_exec -v $$(go list ./... | grep -v example)
 
 build-example: update_glue
-	GOOS=js GOARCH=wasm go build -o example/main.wasm example/main.go example/fondant.go
+	cd example && GOOS=js GOARCH=wasm go build -o main.wasm main.go
 
 serve-example: build-example
 	go run example/serve.go

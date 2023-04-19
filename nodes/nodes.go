@@ -2,25 +2,25 @@
 
 package nodes
 
+type Child = Node
+type Children = []Child
+
+type Props = map[string]interface{}
+
+type FunctionComponent func(attributes Props, children Children) Child
+
 type Node interface {
-	Position(parent, next, prev Node)
-	Render() Node
+	Position(parent Node)
 	ToString() string
 	Diff(other Node) bool
 }
 
 type baseNode struct {
-	Parent, NextSibling, PreviousSibling Node
+	Parent Node
 }
 
-func (n *baseNode) Position(parent, next, prev Node) {
+func (n *baseNode) Position(parent Node) {
 	n.Parent = parent
-	n.NextSibling = next
-	n.PreviousSibling = prev
-}
-
-func (n *baseNode) Render() Node {
-	return n
 }
 
 func (n *baseNode) ToString() string {

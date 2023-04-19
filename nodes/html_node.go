@@ -6,7 +6,6 @@ import (
 	"syscall/js"
 
 	"github.com/minivera/go-lander/events"
-	"github.com/minivera/go-lander/utils"
 )
 
 type HTMLNode struct {
@@ -20,13 +19,13 @@ type HTMLNode struct {
 	Tag            string
 	Classes        []string
 	Attributes     map[string]string
-	EventListeners map[string]events.EventListener
+	EventListeners map[string]*events.EventListener
 	Children       []Node
 	Styles         []string
 }
 
 func NewHTMLNode(tag string, attributes map[string]interface{}, children []Node) *HTMLNode {
-	attrs, listeners := utils.ExtractAttributes(attributes)
+	attrs, listeners := ExtractAttributes(attributes)
 
 	var id string
 	if val, ok := attrs["id"]; ok {
@@ -49,16 +48,11 @@ func NewHTMLNode(tag string, attributes map[string]interface{}, children []Node)
 	}
 }
 
-func (n *HTMLNode) Render() Node {
-	for _, child := range n.Children {
-		child.Render()
-	}
-
-	return n
-}
-
 func (n *HTMLNode) Update(newAttributes map[string]interface{}) {
-	attrs, listeners := utils.ExtractAttributes(newAttributes)
+	oldAttributes := n.Attributes
+	attrs, listeners := ExtractAttributes(newAttributes)
+
+	n.DomID = ""
 
 	if val, ok := attrs["id"]; ok {
 		n.DomID = val
@@ -72,11 +66,47 @@ func (n *HTMLNode) Update(newAttributes map[string]interface{}) {
 
 	n.Attributes = attrs
 	n.EventListeners = listeners
+
+	// Remove, then set the new attributes
+	for key, _ := range oldAttributes {
+		n.DomNode.Call("removeAttribute", key)
+	}
+
+	for key, value := range n.Attributes {
+		n.DomNode.Call("setAttribute", key, value)
+	}
+
+	// Clear the old class list, then set the new classes
+	classList := n.DomNode.Get("classList")
+	classesLength := classList.Get("length").Int()
+	for i := 0; i < classesLength; i += 1 {
+		classList.Call("remove", classList.Call("item", i))
+	}
+
+	for _, value := range n.Classes {
+		classList.Call("add", value)
+	}
+
+	// Set the ID if needed, if not, remove it
+	n.DomNode.Set("id", n.DomID)
 }
 
 func (n *HTMLNode) Mount(domNode js.Value) {
 	n.DomNode = domNode
-	// TODO: Apply everything
+
+	// Attributes
+	for name, value := range n.Attributes {
+		n.DomNode.Call("setAttribute", name, value)
+	}
+
+	// Classes
+	classList := n.DomNode.Get("classList")
+	for _, value := range n.Classes {
+		classList.Call("add", value)
+	}
+
+	// ID
+	n.DomNode.Set("id", n.DomID)
 }
 
 func (n *HTMLNode) ToString() string {
@@ -212,7 +242,7 @@ func (n *HTMLNode) RemoveChildren(node Node) error {
 
 func (n *HTMLNode) Style(styling string) *HTMLNode {
 	// Generate a random CSS class name of length 10
-	className := utils.RandomString(10)
+	className := RandomString(10)
 
 	n.Styles = append(n.Styles, fmt.Sprintf(".%s{%s}", className, styling))
 	n.Classes = append(n.Classes, className)
