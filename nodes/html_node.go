@@ -88,7 +88,11 @@ func (n *HTMLNode) Update(newAttributes map[string]interface{}) {
 	}
 
 	// Set the ID if needed, if not, remove it
-	n.DomNode.Set("id", n.DomID)
+	if n.DomID != "" {
+		n.DomNode.Set("id", n.DomID)
+	} else {
+		n.DomNode.Delete("id")
+	}
 }
 
 func (n *HTMLNode) Mount(domNode js.Value) {
@@ -105,8 +109,15 @@ func (n *HTMLNode) Mount(domNode js.Value) {
 		classList.Call("add", value)
 	}
 
-	// ID
-	n.DomNode.Set("id", n.DomID)
+	// Add the active class
+	if n.ActiveClass != "" {
+		classList.Call("add", n.ActiveClass)
+	}
+
+	// ID if set
+	if n.DomID != "" {
+		n.DomNode.Set("id", n.DomID)
+	}
 }
 
 func (n *HTMLNode) ToString() string {
@@ -126,7 +137,7 @@ func (n *HTMLNode) ToString() string {
 		`<%s id="%s" class="%s"%s>%s</%s>`,
 		n.Tag,
 		n.DomID,
-		strings.Join(n.Classes, " "),
+		strings.Join(append(n.Classes, n.ActiveClass), " "),
 		strings.Join(attributesString, " "),
 		content,
 		n.Tag,
@@ -136,55 +147,56 @@ func (n *HTMLNode) ToString() string {
 func (n *HTMLNode) Diff(other Node) bool {
 	otherAsHtml, ok := other.(*HTMLNode)
 	if !ok {
-		return false
+		return true
 	}
 
 	if otherAsHtml.Tag != n.Tag || otherAsHtml.DomID != n.DomID {
-		return false
+		return true
 	}
 
 	if len(otherAsHtml.Classes) != len(n.Classes) {
-		return false
+		return true
 	}
 
 	for i, class := range n.Classes {
 		if class != otherAsHtml.Classes[i] {
-			return false
+			return true
 		}
 	}
 
 	if len(otherAsHtml.Attributes) != len(n.Attributes) {
-		return false
+		return true
 	}
 
 	for key, val := range n.Attributes {
 		otherVal, ok := otherAsHtml.Attributes[key]
 		if !ok {
-			return false
+			return true
 		}
 
 		if val != otherVal {
-			return false
+			return true
 		}
 	}
 
 	// We don't check event listeners here, they should always be updated
 
 	if len(otherAsHtml.Styles) != len(n.Styles) {
-		return false
+		return true
 	}
 
 	for i, style := range n.Styles {
-		if style != otherAsHtml.Styles[i] {
-			return false
+		if strings.Replace(style, n.ActiveClass, "", 1) !=
+			strings.Replace(otherAsHtml.Styles[i], otherAsHtml.ActiveClass, "", 1) {
+			return true
 		}
 	}
 
 	if len(otherAsHtml.Children) != len(n.Children) {
-		return false
+		return true
 	}
 
-	return true
+	return false
 }
 
 func (n *HTMLNode) InsertChildren(node Node, position int) error {
@@ -245,7 +257,6 @@ func (n *HTMLNode) Style(styling string) *HTMLNode {
 	className := RandomString(10)
 
 	n.Styles = append(n.Styles, fmt.Sprintf(".%s{%s}", className, styling))
-	n.Classes = append(n.Classes, className)
 	n.ActiveClass = className
 	return n
 }

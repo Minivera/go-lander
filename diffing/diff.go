@@ -14,9 +14,10 @@ import (
 // executed sequentially. GeneratePatches expects the tree it is given to be made exclusively of HTML
 // nodes (HTML and text), and no components.
 func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this js.Value, args []js.Value) interface{},
-	prev, old, new nodes.Node) ([]Patch, error) {
+	prev, old, new nodes.Node) ([]Patch, []string, error) {
 
 	var patches []Patch
+	var currentStyles []string
 
 	var oldChildren []nodes.Node
 	var newChildren []nodes.Node
@@ -31,48 +32,63 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 		case *nodes.HTMLNode:
 			patches = append(
 				patches,
-				newPatchHTML(listenerFunc, typedNode, new.(*nodes.HTMLNode)),
+				newPatchHTML(listenerFunc, typedNode, typedNode),
 			)
 			newChildren = typedNode.Children
+
+			currentStyles = append(currentStyles, typedNode.Styles...)
 		case *nodes.TextNode:
 			patches = append(
 				patches,
-				newPatchText(prev, old.(*nodes.TextNode), typedNode.Text),
+				newPatchText(prev, typedNode, typedNode.Text),
 			)
 		default:
-			return nil, fmt.Errorf("somehow got neither a text, nor a HTML node during patching, cannot process node")
+			return nil, []string{}, fmt.Errorf("somehow got neither a text, nor a HTML node during patching, cannot process node")
 		}
 	} else if reflect.TypeOf(old) != reflect.TypeOf(new) {
 		// If both nodes exist, but they are of a different type, replace and patch
 		patches = append(patches, newPatchReplace(prev, old, new))
 
-		switch typedNode := new.(type) {
+		switch typedNode := old.(type) {
 		case *nodes.HTMLNode:
 			patches = append(
 				patches,
 				newPatchHTML(listenerFunc, typedNode, new.(*nodes.HTMLNode)),
 			)
 			newChildren = typedNode.Children
+
+			currentStyles = append(currentStyles, new.(*nodes.HTMLNode).Styles...)
 		case *nodes.TextNode:
 			patches = append(
 				patches,
-				newPatchText(prev, old.(*nodes.TextNode), typedNode.Text),
+				newPatchText(prev, typedNode, new.(*nodes.TextNode).Text),
 			)
 		default:
-			return nil, fmt.Errorf("somehow got neither a text, nor a HTML node during patching, cannot process node")
+			return nil, []string{}, fmt.Errorf("somehow got neither a text, nor a HTML node during patching, cannot process node")
 		}
 	} else if old.Diff(new) {
 		// If both nodes have the same type, but have differences
-		switch typedNode := new.(type) {
+		switch typedNode := old.(type) {
 		case *nodes.HTMLNode:
 			patches = append(patches, newPatchHTML(listenerFunc, typedNode, new.(*nodes.HTMLNode)))
 			oldChildren = typedNode.Children
 			newConverted := new.(*nodes.HTMLNode)
 			newChildren = newConverted.Children
+
+			currentStyles = append(currentStyles, new.(*nodes.HTMLNode).Styles...)
 		case *nodes.TextNode:
-			patches = append(patches, newPatchText(prev, old.(*nodes.TextNode), typedNode.Text))
+			patches = append(patches, newPatchText(prev, typedNode, new.(*nodes.TextNode).Text))
 		default:
-			return nil, fmt.Errorf("somehow got neither a text, nor a HTML node during patching, cannot process node")
+			return nil, []string{}, fmt.Errorf("somehow got neither a text, nor a HTML node during patching, cannot process node")
+		}
+	} else {
+		// If the two nodes are the same, still run on the children
+		if oldConverted, ok := old.(*nodes.HTMLNode); ok {
+			oldChildren = oldConverted.Children
+			currentStyles = append(currentStyles, oldConverted.Styles...)
+		}
+		if newConverted, ok := new.(*nodes.HTMLNode); ok {
+			newChildren = newConverted.Children
 		}
 	}
 
@@ -86,25 +102,31 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 
 		child.Position(old)
 
-		childPatches, err := GeneratePatches(listenerFunc, old, child, newChild)
+		childPatches, styles, err := GeneratePatches(listenerFunc, old, child, newChild)
 		if err != nil {
-			return nil, err
+			return nil, []string{}, err
 		}
 		patches = append(patches, childPatches...)
+		currentStyles = append(currentStyles, styles...)
 
 		count += 1
 	}
 
 	// If we still have new nodes left, then loop over them and insert
 	if count >= len(newChildren) {
-		return patches, nil
+		return patches, currentStyles, nil
 	}
 
-	for _, child := range newChildren {
+	for _, child := range newChildren[count:] {
 		child.Position(new)
 
-		patches = append(patches, newPatchInsert(old, child))
+		childPatches, styles, err := GeneratePatches(listenerFunc, old, nil, child)
+		if err != nil {
+			return nil, []string{}, err
+		}
+		patches = append(patches, childPatches...)
+		currentStyles = append(currentStyles, styles...)
 	}
 
-	return patches, nil
+	return patches, currentStyles, nil
 }

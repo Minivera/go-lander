@@ -29,32 +29,32 @@ func (n *FuncNode) Render() Node {
 func (n *FuncNode) Diff(other Node) bool {
 	otherAsFunc, ok := other.(*FuncNode)
 	if !ok {
-		return false
+		return true
 	}
 
 	if &otherAsFunc.factory != &n.factory {
-		return false
+		return true
 	}
 
 	if len(otherAsFunc.Properties) != len(n.Properties) {
-		return false
+		return true
 	}
 
 	for key, val := range n.Properties {
 		otherVal, ok := otherAsFunc.Properties[key]
 		if !ok {
-			return false
+			return true
 		}
 
 		if val != otherVal {
-			return false
+			return true
 		}
 	}
 
 	// We check if any of the given children were dirty in the general diff code
 	if len(otherAsFunc.givenChildren) != len(n.givenChildren) {
-		return false
+		return true
 	}
 
-	return true
+	return false
 }

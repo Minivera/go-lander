@@ -3,7 +3,6 @@
 package diffing
 
 import (
-	"fmt"
 	"strings"
 	"syscall/js"
 
@@ -71,7 +70,6 @@ func (p *patchHTML) Execute(document js.Value) error {
 
 	// Remove any event listeners using the direct attribute rather than addEventListener
 	for event, listener := range p.oldNode.EventListeners {
-		fmt.Printf("removing event in diffing\n %s", event)
 		p.oldNode.DomNode.Call("removeEventListener", event, listener.Wrapper)
 	}
 
@@ -79,11 +77,19 @@ func (p *patchHTML) Execute(document js.Value) error {
 
 	// Add new event listeners using the attributes
 	for event, listener := range p.oldNode.EventListeners {
-		fmt.Printf("adding event in diffing\n %s", event)
 		listener.Wrapper = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			return p.listenerFunc(listener.Func, this, args)
 		})
 		p.oldNode.DomNode.Call("addEventListener", event, listener.Wrapper)
+	}
+
+	// Update the active class with the new value, replace the styles
+	p.oldNode.ActiveClass = p.newNode.ActiveClass
+	p.oldNode.Styles = p.newNode.Styles
+
+	classList := p.oldNode.DomNode.Get("classList")
+	if p.oldNode.ActiveClass != "" {
+		classList.Call("add", p.oldNode.ActiveClass)
 	}
 
 	return nil

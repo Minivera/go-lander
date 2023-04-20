@@ -1,6 +1,8 @@
 package nodes
 
-import "syscall/js"
+import (
+	"syscall/js"
+)
 
 type TextNode struct {
 	baseNode
@@ -34,8 +36,8 @@ func (n *TextNode) ToString() string {
 func (n *TextNode) Diff(other Node) bool {
 	otherAsText, ok := other.(*TextNode)
 	if !ok {
-		return false
+		return true
 	}
 
-	return otherAsText.Text == n.Text
+	return otherAsText.Text != n.Text
 }

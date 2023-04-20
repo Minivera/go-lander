@@ -32,7 +32,6 @@ func ExtractAttributes(attributes map[string]interface{}) (map[string]string, ma
 				Func: casted,
 			}
 		default:
-			fmt.Printf("Attribute not supported %s, %T\n", key, value)
 			// attributes only support vars of type string, bool, int or EventListener
 			// Any other attribute is ignored to avoid panicking.
 			continue

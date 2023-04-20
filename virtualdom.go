@@ -138,12 +138,7 @@ func (e *DomEnvironment) recursivelyMount(lastElement js.Value, currentNode node
 }
 
 func (e *DomEnvironment) patchDom() error {
-	rootElem := document.Call("querySelector", e.root)
-	if !rootElem.Truthy() {
-		return fmt.Errorf("failed to find mount parent using query selector %q", rootElem)
-	}
-
-	patches, err := diffing.GeneratePatches(e.handleDOMEvent, nil, e.tree, e.generateTree(e.app))
+	patches, styles, err := diffing.GeneratePatches(e.handleDOMEvent, nil, e.tree, e.generateTree(e.app))
 	if err != nil {
 		return err
 	}
@@ -154,6 +149,20 @@ func (e *DomEnvironment) patchDom() error {
 			return err
 		}
 	}
+
+	styleTag := document.Call("querySelector", "#lander-style-tag")
+	if !styleTag.Truthy() {
+		return fmt.Errorf("failed to find the style selector, failing %s", "#lander-style-tag")
+	}
+
+	m := minify.New()
+	m.AddFunc("text/css", css.Minify)
+	stylesString, err := m.String("text/css", strings.Join(styles, " "))
+	if err != nil {
+		return err
+	}
+
+	styleTag.Set("innerHTML", stylesString)
 
 	return nil
 }
