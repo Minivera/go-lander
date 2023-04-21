@@ -3,8 +3,8 @@ module github.com/minivera/go-lander
 go 1.20
 
 require (
-	github.com/cespare/xxhash v1.1.0
 	github.com/google/go-cmp v0.5.9
+	github.com/magefile/mage v1.14.0
 	github.com/stretchr/testify v1.8.2
 	github.com/tdewolff/minify/v2 v2.12.5
 )

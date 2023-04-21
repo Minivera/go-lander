@@ -4,6 +4,7 @@
 *.dll
 *.so
 *.dylib
+plz-out
 
 # Test binary, built with `go test -c`
 *.test
@@ -18,3 +19,6 @@ vendor
 .idea
 .vscode
 .DS_Store
+# Entries below this point are managed by Please (DO NOT EDIT)
+plz-out
+.plzconfig.local
