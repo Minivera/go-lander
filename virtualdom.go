@@ -58,7 +58,7 @@ func (e *DomEnvironment) renderIntoRoot() error {
 	}
 
 	e.tree = e.generateTree(e.app)
-	styles := e.recursivelyMount(rootElem, e.tree)
+	styles := diffing.RecursivelyMount(e.handleDOMEvent, document, rootElem, e.tree)
 
 	m := minify.New()
 	m.AddFunc("text/css", css.Minify)
@@ -80,63 +80,6 @@ func (e *DomEnvironment) renderIntoRoot() error {
 	return nil
 }
 
-func (e *DomEnvironment) recursivelyMount(lastElement js.Value, currentNode nodes.Node) []string {
-	if currentNode == nil {
-		return []string{}
-	}
-
-	add := false
-	domElement := lastElement
-	var styles []string
-	var children []nodes.Node
-
-	switch typedNode := currentNode.(type) {
-	case *nodes.HTMLNode:
-		add = true
-		domElement = nodes.NewHTMLElement(document, typedNode)
-		typedNode.Mount(domElement)
-
-		for event, listener := range typedNode.EventListeners {
-			listener.Wrapper = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				return e.handleDOMEvent(listener.Func, this, args)
-			})
-			domElement.Call("addEventListener", event, listener.Wrapper)
-		}
-
-		children = typedNode.Children
-
-		for _, style := range typedNode.Styles {
-			styles = append(styles, style)
-		}
-	case *nodes.TextNode:
-		add = true
-		domElement = document.Call("createTextNode", typedNode.Text)
-		typedNode.Mount(domElement)
-	default:
-		return []string{}
-	}
-
-	for _, child := range children {
-		if child == nil {
-			continue
-		}
-
-		child.Position(currentNode)
-
-		childStyles := e.recursivelyMount(domElement, child)
-
-		for _, style := range childStyles {
-			styles = append(styles, style)
-		}
-	}
-
-	if add {
-		lastElement.Call("appendChild", domElement)
-	}
-
-	return styles
-}
-
 func (e *DomEnvironment) patchDom() error {
 	patches, styles, err := diffing.GeneratePatches(e.handleDOMEvent, nil, e.tree, e.generateTree(e.app))
 	if err != nil {
@@ -144,7 +87,7 @@ func (e *DomEnvironment) patchDom() error {
 	}
 
 	for _, patch := range patches {
-		err := patch.Execute(document)
+		err := patch.Execute(document, &styles)
 		if err != nil {
 			return err
 		}
@@ -171,6 +114,7 @@ func (e *DomEnvironment) generateTree(currentNode nodes.Node) nodes.Node {
 	var toReturn nodes.Node
 	var children []nodes.Node
 
+	fmt.Printf("Generating %T, %v\n", currentNode, currentNode)
 	// Check the current node's type
 	switch typedNode := currentNode.(type) {
 	case *nodes.FuncNode:
@@ -201,7 +145,7 @@ func (e *DomEnvironment) generateTree(currentNode nodes.Node) nodes.Node {
 		// the final child here. For most cases, that should do nothing, but for function nodes
 		// it should replace it with the real final result.
 		if typedNode, ok := currentNode.(*nodes.HTMLNode); ok {
-			typedNode.Children[i] = child
+			typedNode.Children[i] = renderResult
 		}
 	}
 

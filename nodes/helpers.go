@@ -31,6 +31,11 @@ func ExtractAttributes(attributes map[string]interface{}) (map[string]string, ma
 				Name: key,
 				Func: casted,
 			}
+		case lEvents.EventListenerFunc:
+			events[key] = &lEvents.EventListener{
+				Name: key,
+				Func: casted,
+			}
 		default:
 			// attributes only support vars of type string, bool, int or EventListener
 			// Any other attribute is ignored to avoid panicking.

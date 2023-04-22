@@ -11,7 +11,7 @@ import (
 )
 
 type Patch interface {
-	Execute(js.Value) error
+	Execute(js.Value, *[]string) error
 }
 
 type patchText struct {
@@ -28,7 +28,7 @@ func newPatchText(parentNode nodes.Node, old *nodes.TextNode, text string) Patch
 	}
 }
 
-func (p *patchText) Execute(document js.Value) error {
+func (p *patchText) Execute(document js.Value, styles *[]string) error {
 	p.oldNode.Update(p.newText)
 
 	return nil
@@ -51,14 +51,14 @@ func newPatchHTML(
 	}
 }
 
-func (p *patchHTML) Execute(document js.Value) error {
+func (p *patchHTML) Execute(document js.Value, styles *[]string) error {
 	newAttributes := make(map[string]interface{}, len(p.newNode.Attributes)+len(p.newNode.EventListeners)+2)
 	for key, value := range p.newNode.Attributes {
 		newAttributes[key] = value
 	}
 
 	for key, value := range p.newNode.EventListeners {
-		newAttributes[key] = value
+		newAttributes[key] = value.Func
 	}
 
 	if p.newNode.DomID != "" {
@@ -96,17 +96,25 @@ func (p *patchHTML) Execute(document js.Value) error {
 }
 
 type patchInsert struct {
+	listenerFunc    func(listener events.EventListenerFunc, this js.Value, args []js.Value) interface{}
 	parent, newNode nodes.Node
 }
 
-func newPatchInsert(parent, new nodes.Node) Patch {
+func newPatchInsert(
+	listenerFunc func(listener events.EventListenerFunc, this js.Value, args []js.Value) interface{},
+	parent,
+	new nodes.Node,
+) Patch {
 	return &patchInsert{
-		parent:  parent,
-		newNode: new,
+		listenerFunc: listenerFunc,
+		parent:       parent,
+		newNode:      new,
 	}
 }
 
-func (p *patchInsert) Execute(document js.Value) error {
+func (p *patchInsert) Execute(document js.Value, styles *[]string) error {
+	p.newNode.Position(p.parent)
+
 	htmlParent, ok := p.parent.(*nodes.HTMLNode)
 	if !ok {
 		return nil
@@ -121,8 +129,25 @@ func (p *patchInsert) Execute(document js.Value) error {
 	switch typedNode := p.newNode.(type) {
 	case *nodes.HTMLNode:
 		domElement = nodes.NewHTMLElement(document, typedNode)
+		typedNode.Mount(domElement)
+
+		// Trigger a recursive mount for all its children
+		for _, child := range typedNode.Children {
+			if child == nil {
+				continue
+			}
+
+			child.Position(typedNode)
+
+			childStyles := RecursivelyMount(p.listenerFunc, document, domElement, child)
+
+			for _, style := range childStyles {
+				*styles = append(*styles, style)
+			}
+		}
 	case *nodes.TextNode:
 		domElement = document.Call("createTextNode", typedNode.Text)
+		typedNode.Mount(domElement)
 	default:
 		// Ignore anything that's not dom related
 		return nil
@@ -144,7 +169,7 @@ func newPatchRemove(parent, old nodes.Node) Patch {
 	}
 }
 
-func (p *patchRemove) Execute(document js.Value) error {
+func (p *patchRemove) Execute(document js.Value, styles *[]string) error {
 	htmlParent, ok := p.parent.(*nodes.HTMLNode)
 	if !ok {
 		return nil
@@ -166,18 +191,27 @@ func (p *patchRemove) Execute(document js.Value) error {
 }
 
 type patchReplace struct {
+	listenerFunc             func(listener events.EventListenerFunc, this js.Value, args []js.Value) interface{}
 	parent, newNode, oldNode nodes.Node
 }
 
-func newPatchReplace(parent, old, new nodes.Node) Patch {
+func newPatchReplace(
+	listenerFunc func(listener events.EventListenerFunc, this js.Value, args []js.Value) interface{},
+	parent,
+	old,
+	new nodes.Node,
+) Patch {
 	return &patchReplace{
-		parent:  parent,
-		newNode: new,
-		oldNode: old,
+		listenerFunc: listenerFunc,
+		parent:       parent,
+		newNode:      new,
+		oldNode:      old,
 	}
 }
 
-func (p *patchReplace) Execute(document js.Value) error {
+func (p *patchReplace) Execute(document js.Value, styles *[]string) error {
+	p.newNode.Position(p.parent)
+
 	htmlParent, ok := p.parent.(*nodes.HTMLNode)
 	if !ok {
 		return nil
@@ -191,10 +225,27 @@ func (p *patchReplace) Execute(document js.Value) error {
 	switch typedNode := p.newNode.(type) {
 	case *nodes.HTMLNode:
 		domElement := nodes.NewHTMLElement(document, typedNode)
+		typedNode.Mount(domElement)
+
+		// Trigger a recursive mount for all its children
+		for _, child := range typedNode.Children {
+			if child == nil {
+				continue
+			}
+
+			child.Position(typedNode)
+
+			childStyles := RecursivelyMount(p.listenerFunc, document, domElement, child)
+
+			for _, style := range childStyles {
+				*styles = append(*styles, style)
+			}
+		}
 
 		htmlParent.DomNode.Call("replaceChild", typedNode.DomNode, domElement)
 	case *nodes.TextNode:
 		domElement := document.Call("createTextNode", typedNode.Text)
+		typedNode.Mount(domElement)
 
 		htmlParent.DomNode.Call("replaceChild", typedNode.DomNode, domElement)
 	}

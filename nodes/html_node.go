@@ -70,10 +70,12 @@ func (n *HTMLNode) Update(newAttributes map[string]interface{}) {
 	// Remove, then set the new attributes
 	for key, _ := range oldAttributes {
 		n.DomNode.Call("removeAttribute", key)
+		n.DomNode.Set(key, nil)
 	}
 
 	for key, value := range n.Attributes {
 		n.DomNode.Call("setAttribute", key, value)
+		n.DomNode.Set(key, value)
 	}
 
 	// Clear the old class list, then set the new classes
@@ -101,6 +103,7 @@ func (n *HTMLNode) Mount(domNode js.Value) {
 	// Attributes
 	for name, value := range n.Attributes {
 		n.DomNode.Call("setAttribute", name, value)
+		n.DomNode.Set(name, value)
 	}
 
 	// Classes
@@ -185,15 +188,13 @@ func (n *HTMLNode) Diff(other Node) bool {
 		return true
 	}
 
+	// Check the styles, but remove the randomized active style class so we don't constantly
+	// update the node due to randomness.
 	for i, style := range n.Styles {
 		if strings.Replace(style, n.ActiveClass, "", 1) !=
 			strings.Replace(otherAsHtml.Styles[i], otherAsHtml.ActiveClass, "", 1) {
 			return true
 		}
-	}
-
-	if len(otherAsHtml.Children) != len(n.Children) {
-		return true
 	}
 
 	return false
@@ -236,10 +237,6 @@ func (n *HTMLNode) RemoveChildren(node Node) error {
 	newChildren := make([]Node, len(n.Children)-1)
 	index := 0
 	for _, child := range n.Children {
-		if index >= len(newChildren) {
-			// Could not find the child
-			return nil
-		}
 		if child == node {
 			continue
 		}

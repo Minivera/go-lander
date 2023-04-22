@@ -22,51 +22,39 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 	var oldChildren []nodes.Node
 	var newChildren []nodes.Node
 
+	fmt.Printf("Diffing %T, %v against %T, %v\n", old, old, new, new)
 	if new == nil {
+		fmt.Println("New was missing, removing")
 		// If the new is missing, then we should remove unneeded children
-		newPatchRemove(prev, new)
+		patches = append(patches, newPatchRemove(prev, old))
+		return patches, currentStyles, nil
 	} else if old == nil {
+		fmt.Println("Old was missing, inserting")
 		// If the old node is missing, then we are mounting for the first time
-		patches = append(patches, newPatchInsert(prev, new))
+		patches = append(patches, newPatchInsert(listenerFunc, prev, new))
 		switch typedNode := new.(type) {
 		case *nodes.HTMLNode:
-			patches = append(
-				patches,
-				newPatchHTML(listenerFunc, typedNode, typedNode),
-			)
 			newChildren = typedNode.Children
 
 			currentStyles = append(currentStyles, typedNode.Styles...)
-		case *nodes.TextNode:
-			patches = append(
-				patches,
-				newPatchText(prev, typedNode, typedNode.Text),
-			)
-		default:
-			return nil, []string{}, fmt.Errorf("somehow got neither a text, nor a HTML node during patching, cannot process node")
 		}
+
+		return patches, currentStyles, nil
 	} else if reflect.TypeOf(old) != reflect.TypeOf(new) {
+		fmt.Println("Types were different, replacing")
 		// If both nodes exist, but they are of a different type, replace and patch
-		patches = append(patches, newPatchReplace(prev, old, new))
+		patches = append(patches, newPatchReplace(listenerFunc, prev, old, new))
 
 		switch typedNode := old.(type) {
 		case *nodes.HTMLNode:
-			patches = append(
-				patches,
-				newPatchHTML(listenerFunc, typedNode, new.(*nodes.HTMLNode)),
-			)
 			newChildren = typedNode.Children
 
 			currentStyles = append(currentStyles, new.(*nodes.HTMLNode).Styles...)
-		case *nodes.TextNode:
-			patches = append(
-				patches,
-				newPatchText(prev, typedNode, new.(*nodes.TextNode).Text),
-			)
-		default:
-			return nil, []string{}, fmt.Errorf("somehow got neither a text, nor a HTML node during patching, cannot process node")
 		}
+
+		return patches, currentStyles, nil
 	} else if old.Diff(new) {
+		fmt.Println("Nodes were different, updating")
 		// If both nodes have the same type, but have differences
 		switch typedNode := old.(type) {
 		case *nodes.HTMLNode:
@@ -82,6 +70,7 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 			return nil, []string{}, fmt.Errorf("somehow got neither a text, nor a HTML node during patching, cannot process node")
 		}
 	} else {
+		fmt.Println("No changes")
 		// If the two nodes are the same, still run on the children
 		if oldConverted, ok := old.(*nodes.HTMLNode); ok {
 			oldChildren = oldConverted.Children
@@ -100,8 +89,6 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 			newChild = newChildren[count]
 		}
 
-		child.Position(old)
-
 		childPatches, styles, err := GeneratePatches(listenerFunc, old, child, newChild)
 		if err != nil {
 			return nil, []string{}, err
@@ -118,8 +105,6 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 	}
 
 	for _, child := range newChildren[count:] {
-		child.Position(new)
-
 		childPatches, styles, err := GeneratePatches(listenerFunc, old, nil, child)
 		if err != nil {
 			return nil, []string{}, err
