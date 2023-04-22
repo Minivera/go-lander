@@ -28,6 +28,8 @@ type Context interface {
 }
 
 type baseContext struct {
+	previousContext *baseContext
+
 	contextValues map[string]interface{}
 
 	contextPerComponent map[interface{}][]string
@@ -35,14 +37,26 @@ type baseContext struct {
 	componentEvents     map[interface{}]map[string]func() error
 }
 
-func WithNewContext(call func() error) error {
+func WithNewContext(previousContext Context, call func() error) error {
 	fmt.Println("Start new context")
 	prevContext := CurrentContext
 	localContext := &baseContext{
+		contextValues: map[string]interface{}{},
+
 		contextPerComponent: map[interface{}][]string{},
 		currentComponent:    nil,
 		componentEvents:     map[interface{}]map[string]func() error{},
 	}
+
+	// Restore the old context if it was provided
+	if previousContext != nil {
+		localContext.previousContext = previousContext.(*baseContext)
+
+		for key, value := range localContext.previousContext.contextValues {
+			localContext.contextValues[key] = value
+		}
+	}
+
 	CurrentContext = localContext
 
 	err := call()
@@ -87,8 +101,6 @@ func (c *baseContext) OnRender(listener func() error) {
 	c.registerListener("render", listener)
 }
 
-// TODO: This does not work because the component is "deleted" and never rendered during diffing.
-// TODO: We'll nee to find an alternative way of registering components unmounting.
 func (c *baseContext) OnUnmount(listener func() error) {
 	fmt.Printf("registering OnUnmount for component %T, %v\n", c.currentComponent, c.currentComponent)
 	c.registerListener("unmount", listener)
@@ -135,6 +147,32 @@ func (c *baseContext) triggerEvents() error {
 			if err != nil {
 				return fmt.Errorf("error in %s listener for component. %w", name, err)
 			}
+		}
+	}
+
+	if c.previousContext == nil {
+		return nil
+	}
+
+	// Look up any component in the old context that was not processed in the new context. This
+	// means the component was unmounted and we should trigger the unmount
+	for component, events := range c.previousContext.componentEvents {
+		_, ok := c.componentEvents[component]
+		if ok {
+			// skip if the component was registered in the current component
+			continue
+		}
+
+		listener, ok := events["unmount"]
+		if !ok {
+			// skip if the unmounted component doesn't trigger unmount
+			continue
+		}
+
+		fmt.Printf("Executing unmount with component %T\n", component)
+		err := listener()
+		if err != nil {
+			return fmt.Errorf("error in unmount listener for component. %w", err)
 		}
 	}
 

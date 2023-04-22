@@ -27,6 +27,8 @@ type DomEnvironment struct {
 
 	app  nodes.Node
 	tree nodes.Node
+
+	prevContext context.Context
 }
 
 func RenderInto(rootNode *nodes.FuncNode, root string) (*DomEnvironment, error) {
@@ -60,8 +62,9 @@ func (e *DomEnvironment) renderIntoRoot() error {
 
 	var styles []string
 	var renderedTree nodes.Node
-	err := context.WithNewContext(func() error {
+	err := context.WithNewContext(nil, func() error {
 		renderedTree, styles = diffing.RecursivelyMount(e.handleDOMEvent, document, rootElem, e.app)
+		e.prevContext = context.CurrentContext
 		return nil
 	})
 	if err != nil {
@@ -92,7 +95,7 @@ func (e *DomEnvironment) renderIntoRoot() error {
 
 func (e *DomEnvironment) patchDom() error {
 	var styles []string
-	err := context.WithNewContext(func() error {
+	err := context.WithNewContext(e.prevContext, func() error {
 		patches, renderedStyles, err := diffing.GeneratePatches(e.handleDOMEvent, nil, nil, e.tree, e.app)
 		if err != nil {
 			return err
@@ -106,6 +109,7 @@ func (e *DomEnvironment) patchDom() error {
 		}
 
 		styles = renderedStyles
+		e.prevContext = context.CurrentContext
 		return nil
 	})
 	if err != nil {
