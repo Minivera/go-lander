@@ -10,6 +10,7 @@ import (
 	"github.com/tdewolff/minify/v2"
 	"github.com/tdewolff/minify/v2/css"
 
+	"github.com/minivera/go-lander/context"
 	"github.com/minivera/go-lander/diffing"
 	"github.com/minivera/go-lander/events"
 	"github.com/minivera/go-lander/nodes"
@@ -57,14 +58,23 @@ func (e *DomEnvironment) renderIntoRoot() error {
 		return fmt.Errorf("failed to find mount parent using query selector %q", e.root)
 	}
 
-	e.tree = e.generateTree(e.app)
-	styles := diffing.RecursivelyMount(e.handleDOMEvent, document, rootElem, e.tree)
+	var styles []string
+	var renderedTree nodes.Node
+	err := context.WithNewContext(func() error {
+		renderedTree, styles = diffing.RecursivelyMount(e.handleDOMEvent, document, rootElem, e.app)
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	e.tree = renderedTree
 
 	m := minify.New()
 	m.AddFunc("text/css", css.Minify)
 	stylesString, err := m.String("text/css", strings.Join(styles, " "))
 	if err != nil {
-		return err
+		return fmt.Errorf("could not minify CSS styles from HTML nodes. %w", err)
 	}
 
 	head := document.Call("querySelector", "head")
@@ -81,16 +91,25 @@ func (e *DomEnvironment) renderIntoRoot() error {
 }
 
 func (e *DomEnvironment) patchDom() error {
-	patches, styles, err := diffing.GeneratePatches(e.handleDOMEvent, nil, e.tree, e.generateTree(e.app))
-	if err != nil {
-		return err
-	}
-
-	for _, patch := range patches {
-		err := patch.Execute(document, &styles)
+	var styles []string
+	err := context.WithNewContext(func() error {
+		patches, renderedStyles, err := diffing.GeneratePatches(e.handleDOMEvent, nil, nil, e.tree, e.app)
 		if err != nil {
 			return err
 		}
+
+		for _, patch := range patches {
+			err := patch.Execute(document, &renderedStyles)
+			if err != nil {
+				return err
+			}
+		}
+
+		styles = renderedStyles
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	styleTag := document.Call("querySelector", "#lander-style-tag")
@@ -108,49 +127,6 @@ func (e *DomEnvironment) patchDom() error {
 	styleTag.Set("innerHTML", stylesString)
 
 	return nil
-}
-
-func (e *DomEnvironment) generateTree(currentNode nodes.Node) nodes.Node {
-	var toReturn nodes.Node
-	var children []nodes.Node
-
-	fmt.Printf("Generating %T, %v\n", currentNode, currentNode)
-	// Check the current node's type
-	switch typedNode := currentNode.(type) {
-	case *nodes.FuncNode:
-		// If the current node is a func node, we want to render it and "forget" it exists
-		// replacing it with whatever it rendered.
-		toReturn = typedNode.Render()
-		children = []nodes.Node{toReturn}
-	case *nodes.HTMLNode:
-		// For all other nodes, use it as the node to return. We should get a tree of only "HTML" nodes.
-		toReturn = typedNode
-		children = typedNode.Children
-	default:
-		toReturn = typedNode
-	}
-
-	// Render all the children of the current node, if any
-	for i, child := range children {
-		// Render the current children, get the result
-		renderResult := e.generateTree(child)
-
-		if typedNode, ok := renderResult.(*nodes.FuncNode); ok {
-			// If the child was another function node, then we should recursively render it until we
-			// have a pure HTML node
-			child = e.generateTree(typedNode)
-		}
-
-		// If the current node is an HTML node, replace the child in its children array with
-		// the final child here. For most cases, that should do nothing, but for function nodes
-		// it should replace it with the real final result.
-		if typedNode, ok := currentNode.(*nodes.HTMLNode); ok {
-			typedNode.Children[i] = renderResult
-		}
-	}
-
-	// Return the final node, we should only have a pure HTML tree here
-	return toReturn
 }
 
 func (e *DomEnvironment) handleDOMEvent(listener events.EventListenerFunc, this js.Value, args []js.Value) interface{} {

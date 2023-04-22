@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/minivera/go-lander"
-	"github.com/minivera/go-lander/nodes"
+	"github.com/minivera/go-lander/context"
 )
 
 type counterApp struct {
@@ -13,21 +13,21 @@ type counterApp struct {
 	count int
 }
 
-func (a *counterApp) render(_ lander.Props, _ lander.Children) lander.Child {
+func (a *counterApp) render(_ context.Context, _ lander.Props, _ lander.Children) lander.Child {
 	return lander.Html("div", map[string]interface{}{}, []lander.Child{
-		lander.Html("h1", map[string]interface{}{}, []nodes.Child{
+		lander.Html("h1", map[string]interface{}{}, []lander.Child{
 			lander.Text("Sample counter app"),
 		}),
-		lander.Html("div", map[string]interface{}{}, []nodes.Child{
+		lander.Html("div", map[string]interface{}{}, []lander.Child{
 			lander.Html("button", map[string]interface{}{
 				"click": func(*lander.DOMEvent) error {
 					a.count -= 1
 					return a.env.Update()
 				},
-			}, []nodes.Child{
+			}, []lander.Child{
 				lander.Text("-"),
 			}),
-			lander.Html("div", map[string]interface{}{}, []nodes.Child{
+			lander.Html("div", map[string]interface{}{}, []lander.Child{
 				lander.Text(fmt.Sprintf("Counter is at: %d", a.count)),
 			}).Style("padding-left: 1rem; padding-right: 1rem; color: red;"),
 			lander.Html("button", map[string]interface{}{
@@ -35,11 +35,11 @@ func (a *counterApp) render(_ lander.Props, _ lander.Children) lander.Child {
 					a.count += 1
 					return a.env.Update()
 				},
-			}, []nodes.Child{
+			}, []lander.Child{
 				lander.Text("+"),
 			}),
 		}).Style("display: flex;"),
-		lander.Html("div", map[string]interface{}{}, []nodes.Child{
+		lander.Html("div", map[string]interface{}{}, []lander.Child{
 			lander.Text("Testing the style updates"),
 		}).Style(fmt.Sprintf("margin-top: 1rem; width: 200px; border: %dpx solid red;", a.count)),
 	}).Style("padding: 1rem;")

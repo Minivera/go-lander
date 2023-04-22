@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/minivera/go-lander"
-	"github.com/minivera/go-lander/nodes"
+	"github.com/minivera/go-lander/context"
 )
 
 type addTodoForm struct {
@@ -13,7 +13,7 @@ type addTodoForm struct {
 	value string
 }
 
-func (a *addTodoForm) render(props lander.Props, _ lander.Children) lander.Child {
+func (a *addTodoForm) render(_ context.Context, props lander.Props, _ lander.Children) lander.Child {
 	onAdd, ok := props["onAdd"].(func(value string) error)
 	if !ok {
 		fmt.Println("addTodoForm expects a function as its onAdd prop")
@@ -28,12 +28,12 @@ func (a *addTodoForm) render(props lander.Props, _ lander.Children) lander.Child
 				a.value = event.JSEvent().Get("target").Get("value").String()
 				return a.env.Update()
 			},
-		}, []nodes.Child{}).Style("margin-right: 1rem;"),
+		}, []lander.Child{}).Style("margin-right: 1rem;"),
 		lander.Html("button", map[string]interface{}{
 			"click": func(*lander.DOMEvent) error {
 				return onAdd(a.value)
 			},
-		}, []nodes.Child{
+		}, []lander.Child{
 			lander.Text("Add"),
 		}),
 	}).Style("margin-top: 1rem; display: flex")
@@ -114,13 +114,13 @@ func (a *todosApp) addTodo(name string) {
 	a.todos = todos
 }
 
-func (a *todosApp) render(_ lander.Props, _ lander.Children) lander.Child {
+func (a *todosApp) render(_ context.Context, _ lander.Props, _ lander.Children) lander.Child {
 	fmt.Printf("Todos are %v\n", a.todos)
-	todos := make([]nodes.Child, len(a.todos))
+	todos := make([]lander.Child, len(a.todos))
 
 	for i, todo := range a.todos {
-		todos[i] = lander.Html("li", map[string]interface{}{}, []nodes.Child{
-			lander.Html("div", map[string]interface{}{}, []nodes.Child{
+		todos[i] = lander.Html("li", map[string]interface{}{}, []lander.Child{
+			lander.Html("div", map[string]interface{}{}, []lander.Child{
 				lander.Html("input", map[string]interface{}{
 					"type":    "checkbox",
 					"checked": todo.completed,
@@ -128,8 +128,8 @@ func (a *todosApp) render(_ lander.Props, _ lander.Children) lander.Child {
 						a.updateTodo(todo.id, !todo.completed)
 						return a.env.Update()
 					},
-				}, []nodes.Child{}),
-				lander.Html("strong", map[string]interface{}{}, []nodes.Child{
+				}, []lander.Child{}),
+				lander.Html("strong", map[string]interface{}{}, []lander.Child{
 					lander.Text(todo.name),
 				}),
 			}).Style("display: inline-flex; align-items: center; padding-right: 1rem;"),
@@ -138,18 +138,18 @@ func (a *todosApp) render(_ lander.Props, _ lander.Children) lander.Child {
 					a.deleteTodo(todo.id)
 					return a.env.Update()
 				},
-			}, []nodes.Child{
+			}, []lander.Child{
 				lander.Text("X"),
 			}).Style("display: inline;"),
 		})
 	}
 
 	return lander.Html("div", map[string]interface{}{}, []lander.Child{
-		lander.Html("h1", map[string]interface{}{}, []nodes.Child{
+		lander.Html("h1", map[string]interface{}{}, []lander.Child{
 			lander.Text("Sample todo app"),
 		}),
-		lander.Html("div", map[string]interface{}{}, []nodes.Child{
-			lander.Html("h2", map[string]interface{}{}, []nodes.Child{
+		lander.Html("div", map[string]interface{}{}, []lander.Child{
+			lander.Html("h2", map[string]interface{}{}, []lander.Child{
 				lander.Text("Todos"),
 			}),
 			lander.Html("ul", map[string]interface{}{}, todos).Style("margin-top: 1rem;"),
@@ -162,7 +162,7 @@ func (a *todosApp) render(_ lander.Props, _ lander.Children) lander.Child {
 					}
 					return a.env.Update()
 				},
-			}, []nodes.Child{}),
+			}, []lander.Child{}),
 		}).Style("max-width: 300px;"),
 	}).Style("padding: 1rem;")
 }

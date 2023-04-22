@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"syscall/js"
 
+	"github.com/minivera/go-lander/context"
 	"github.com/minivera/go-lander/events"
 	"github.com/minivera/go-lander/nodes"
 )
@@ -14,7 +15,7 @@ import (
 // executed sequentially. GeneratePatches expects the tree it is given to be made exclusively of HTML
 // nodes (HTML and text), and no components.
 func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this js.Value, args []js.Value) interface{},
-	prev, old, new nodes.Node) ([]Patch, []string, error) {
+	lastComponent *nodes.FuncNode, prev, old, new nodes.Node) ([]Patch, []string, error) {
 
 	var patches []Patch
 	var currentStyles []string
@@ -24,16 +25,48 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 
 	fmt.Printf("Diffing %T, %v against %T, %v\n", old, old, new, new)
 	if new == nil {
+		if typedNode, ok := old.(*nodes.FuncNode); ok {
+			// If we hit a function not when there's a need to replace, then we should render
+			// that function node and keep going as-is. The final tree should never include
+			// any component.
+			fmt.Println("New was missing and old node is a component, rendering and keep going")
+			context.RegisterComponent(lastComponent)
+			return GeneratePatches(listenerFunc, typedNode, prev, typedNode.Render(context.CurrentContext), new)
+		}
+
 		fmt.Println("New was missing, removing")
 		// If the new is missing, then we should remove unneeded children
 		patches = append(patches, newPatchRemove(prev, old))
+
+		// Register the last seen component as now a unmount component if the first encountered dom node was
+		// to be removed
+		if lastComponent != nil {
+			context.UnregisterAllComponentContexts(lastComponent)
+			context.RegisterComponentContext("unmount", lastComponent)
+		}
+
 		return patches, currentStyles, nil
 	} else if old == nil {
+		if typedNode, ok := new.(*nodes.FuncNode); ok {
+			// If we hit a function not when there's a need to insert, then we should render
+			// that function node and keep going as-is. The final tree should never include
+			// any component.
+			fmt.Println("Old is missing and new node is a component, rendering and keep going")
+			context.RegisterComponentContext("render", typedNode)
+			return GeneratePatches(listenerFunc, typedNode, prev, old, typedNode.Render(context.CurrentContext))
+		}
+
 		fmt.Println("Old was missing, inserting")
 		// If the old node is missing, then we are mounting for the first time
 		patches = append(patches, newPatchInsert(listenerFunc, prev, new))
-		switch typedNode := new.(type) {
-		case *nodes.HTMLNode:
+
+		// Register the last seen component as now a mount component if the first encountered dom node was
+		// to be inserted
+		if lastComponent != nil {
+			context.RegisterComponentContext("mount", lastComponent)
+		}
+
+		if typedNode, ok := new.(*nodes.HTMLNode); ok {
 			newChildren = typedNode.Children
 
 			currentStyles = append(currentStyles, typedNode.Styles...)
@@ -41,15 +74,32 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 
 		return patches, currentStyles, nil
 	} else if reflect.TypeOf(old) != reflect.TypeOf(new) {
+		if typedNode, ok := new.(*nodes.FuncNode); ok {
+			// If we hit a function not when there's a need to replace, then we should render
+			// that function node and keep going as-is. The final tree should never include
+			// any component.
+			fmt.Println("Types were different and new node is a component, rendering and keep going")
+			context.RegisterComponentContext("render", typedNode)
+			// We register unmount here since a change in component types means the old structure
+			// will be unmounted through the replace.
+			context.RegisterComponentContext("unmount", lastComponent)
+			return GeneratePatches(listenerFunc, typedNode, prev, old, typedNode.Render(context.CurrentContext))
+		}
+
 		fmt.Println("Types were different, replacing")
 		// If both nodes exist, but they are of a different type, replace and patch
 		patches = append(patches, newPatchReplace(listenerFunc, prev, old, new))
 
-		switch typedNode := old.(type) {
-		case *nodes.HTMLNode:
+		// Register the last seen component as now a mount component if the first encountered dom node was
+		// to be replaced
+		if lastComponent != nil {
+			context.RegisterComponentContext("mount", lastComponent)
+		}
+
+		if typedNode, ok := new.(*nodes.HTMLNode); ok {
 			newChildren = typedNode.Children
 
-			currentStyles = append(currentStyles, new.(*nodes.HTMLNode).Styles...)
+			currentStyles = append(currentStyles, typedNode.Styles...)
 		}
 
 		return patches, currentStyles, nil
@@ -89,7 +139,7 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 			newChild = newChildren[count]
 		}
 
-		childPatches, styles, err := GeneratePatches(listenerFunc, old, child, newChild)
+		childPatches, styles, err := GeneratePatches(listenerFunc, nil, old, child, newChild)
 		if err != nil {
 			return nil, []string{}, err
 		}
@@ -105,7 +155,7 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 	}
 
 	for _, child := range newChildren[count:] {
-		childPatches, styles, err := GeneratePatches(listenerFunc, old, nil, child)
+		childPatches, styles, err := GeneratePatches(listenerFunc, nil, old, nil, child)
 		if err != nil {
 			return nil, []string{}, err
 		}

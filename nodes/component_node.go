@@ -1,5 +1,7 @@
 package nodes
 
+import "github.com/minivera/go-lander/context"
+
 type FuncNode struct {
 	baseNode
 
@@ -22,8 +24,8 @@ func (n *FuncNode) Update(newAttributes Props, newChildren []Node) {
 	n.givenChildren = newChildren
 }
 
-func (n *FuncNode) Render() Node {
-	return n.factory(n.Properties, n.givenChildren)
+func (n *FuncNode) Render(ctx context.Context) Node {
+	return n.factory(ctx, n.Properties, n.givenChildren)
 }
 
 func (n *FuncNode) Diff(other Node) bool {

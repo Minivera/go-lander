@@ -53,7 +53,9 @@ func newPatchHTML(
 
 func (p *patchHTML) Execute(document js.Value, styles *[]string) error {
 	newAttributes := make(map[string]interface{}, len(p.newNode.Attributes)+len(p.newNode.EventListeners)+2)
-	for key, value := range p.newNode.Attributes {
+
+	// Run only on the properties since they retain their original type prior to extraction
+	for key, value := range p.newNode.Properties {
 		newAttributes[key] = value
 	}
 
@@ -132,14 +134,19 @@ func (p *patchInsert) Execute(document js.Value, styles *[]string) error {
 		typedNode.Mount(domElement)
 
 		// Trigger a recursive mount for all its children
-		for _, child := range typedNode.Children {
+		for i, child := range typedNode.Children {
 			if child == nil {
 				continue
 			}
 
 			child.Position(typedNode)
 
-			childStyles := RecursivelyMount(p.listenerFunc, document, domElement, child)
+			renderResult, childStyles := RecursivelyMount(p.listenerFunc, document, domElement, child)
+
+			// Replace the child in its children array with the final child here. For most cases,
+			// that should do nothing, but for function nodes it should replace it with the real
+			// final result.
+			typedNode.Children[i] = renderResult
 
 			for _, style := range childStyles {
 				*styles = append(*styles, style)
@@ -228,14 +235,19 @@ func (p *patchReplace) Execute(document js.Value, styles *[]string) error {
 		typedNode.Mount(domElement)
 
 		// Trigger a recursive mount for all its children
-		for _, child := range typedNode.Children {
+		for i, child := range typedNode.Children {
 			if child == nil {
 				continue
 			}
 
 			child.Position(typedNode)
 
-			childStyles := RecursivelyMount(p.listenerFunc, document, domElement, child)
+			renderResult, childStyles := RecursivelyMount(p.listenerFunc, document, domElement, child)
+
+			// Replace the child in its children array with the final child here. For most cases,
+			// that should do nothing, but for function nodes it should replace it with the real
+			// final result.
+			typedNode.Children[i] = renderResult
 
 			for _, style := range childStyles {
 				*styles = append(*styles, style)

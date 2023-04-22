@@ -19,13 +19,14 @@ type HTMLNode struct {
 	Tag            string
 	Classes        []string
 	Attributes     map[string]string
+	Properties     map[string]interface{}
 	EventListeners map[string]*events.EventListener
 	Children       []Node
 	Styles         []string
 }
 
 func NewHTMLNode(tag string, attributes map[string]interface{}, children []Node) *HTMLNode {
-	attrs, listeners := ExtractAttributes(attributes)
+	attrs, props, listeners := ExtractAttributes(attributes)
 
 	var id string
 	if val, ok := attrs["id"]; ok {
@@ -42,6 +43,7 @@ func NewHTMLNode(tag string, attributes map[string]interface{}, children []Node)
 		Tag:            tag,
 		Classes:        classes,
 		Attributes:     attrs,
+		Properties:     props,
 		EventListeners: listeners,
 		Children:       children,
 		Styles:         []string{},
@@ -50,7 +52,8 @@ func NewHTMLNode(tag string, attributes map[string]interface{}, children []Node)
 
 func (n *HTMLNode) Update(newAttributes map[string]interface{}) {
 	oldAttributes := n.Attributes
-	attrs, listeners := ExtractAttributes(newAttributes)
+	oldProps := n.Properties
+	attrs, props, listeners := ExtractAttributes(newAttributes)
 
 	n.DomID = ""
 
@@ -65,16 +68,21 @@ func (n *HTMLNode) Update(newAttributes map[string]interface{}) {
 	}
 
 	n.Attributes = attrs
+	n.Properties = props
 	n.EventListeners = listeners
 
-	// Remove, then set the new attributes
-	for key, _ := range oldAttributes {
+	// Remove, then set the new attributes/properties
+	for key := range oldAttributes {
 		n.DomNode.Call("removeAttribute", key)
+	}
+	for key := range oldProps {
 		n.DomNode.Set(key, nil)
 	}
 
 	for key, value := range n.Attributes {
 		n.DomNode.Call("setAttribute", key, value)
+	}
+	for key, value := range n.Properties {
 		n.DomNode.Set(key, value)
 	}
 
@@ -103,6 +111,10 @@ func (n *HTMLNode) Mount(domNode js.Value) {
 	// Attributes
 	for name, value := range n.Attributes {
 		n.DomNode.Call("setAttribute", name, value)
+	}
+
+	// Properties
+	for name, value := range n.Properties {
 		n.DomNode.Set(name, value)
 	}
 

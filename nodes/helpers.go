@@ -11,18 +11,24 @@ import (
 	lEvents "github.com/minivera/go-lander/events"
 )
 
-func ExtractAttributes(attributes map[string]interface{}) (map[string]string, map[string]*lEvents.EventListener) {
+func ExtractAttributes(attributes map[string]interface{}) (
+	map[string]string, map[string]interface{}, map[string]*lEvents.EventListener) {
+
 	attrs := map[string]string{}
+	props := map[string]interface{}{}
 	events := map[string]*lEvents.EventListener{}
 
 	for key, value := range attributes {
 		switch casted := value.(type) {
 		case string:
 			attrs[key] = casted
+			props[key] = casted
 		case int:
 			attrs[key] = fmt.Sprintf("%d", casted)
+			props[key] = casted
 		case bool:
 			// Bool attributes only adds the attribute if true, like required=""
+			props[key] = casted
 			if casted {
 				attrs[key] = ""
 			}
@@ -43,7 +49,7 @@ func ExtractAttributes(attributes map[string]interface{}) (map[string]string, ma
 		}
 	}
 
-	return attrs, events
+	return attrs, props, events
 }
 
 func NewHTMLElement(document js.Value, currentElement *HTMLNode) js.Value {

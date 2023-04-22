@@ -2,12 +2,14 @@
 
 package nodes
 
+import "github.com/minivera/go-lander/context"
+
 type Child = Node
 type Children = []Child
 
 type Props = map[string]interface{}
 
-type FunctionComponent func(attributes Props, children Children) Child
+type FunctionComponent func(ctx context.Context, attributes Props, children Children) Child
 
 type Node interface {
 	Position(parent Node)
