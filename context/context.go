@@ -21,9 +21,15 @@ type Context interface {
 	// OnUnmount triggers an event listener when a component is removed from the tree. This will only
 	// fire once and after the component has been removed from the tree.
 	OnUnmount(func() error)
+
+	HasValue(name string) bool
+	GetValue(name string) interface{}
+	SetValue(name string, value interface{})
 }
 
 type baseContext struct {
+	contextValues map[string]interface{}
+
 	contextPerComponent map[interface{}][]string
 	currentComponent    interface{}
 	componentEvents     map[interface{}]map[string]func() error
@@ -133,4 +139,17 @@ func (c *baseContext) triggerEvents() error {
 	}
 
 	return nil
+}
+
+func (c *baseContext) HasValue(name string) bool {
+	_, ok := c.contextValues[name]
+	return ok
+}
+
+func (c *baseContext) GetValue(name string) interface{} {
+	return c.contextValues[name]
+}
+
+func (c *baseContext) SetValue(name string, value interface{}) {
+	c.contextValues[name] = value
 }
