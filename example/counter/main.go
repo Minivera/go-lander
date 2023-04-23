@@ -5,6 +5,8 @@ import (
 
 	"github.com/minivera/go-lander"
 	"github.com/minivera/go-lander/context"
+	"github.com/minivera/go-lander/events"
+	"github.com/minivera/go-lander/nodes"
 )
 
 type counterApp struct {
@@ -13,33 +15,33 @@ type counterApp struct {
 	count int
 }
 
-func (a *counterApp) render(_ context.Context, _ lander.Props, _ lander.Children) lander.Child {
-	return lander.Html("div", map[string]interface{}{}, []lander.Child{
-		lander.Html("h1", map[string]interface{}{}, []lander.Child{
+func (a *counterApp) render(_ context.Context, _ struct{}, _ nodes.Children) nodes.Child {
+	return lander.Html("div", nodes.Attributes{}, []nodes.Child{
+		lander.Html("h1", nodes.Attributes{}, []nodes.Child{
 			lander.Text("Sample counter app"),
 		}),
-		lander.Html("div", map[string]interface{}{}, []lander.Child{
-			lander.Html("button", map[string]interface{}{
-				"click": func(*lander.DOMEvent) error {
+		lander.Html("div", nodes.Attributes{}, []nodes.Child{
+			lander.Html("button", nodes.Attributes{
+				"click": func(*events.DOMEvent) error {
 					a.count -= 1
 					return a.env.Update()
 				},
-			}, []lander.Child{
+			}, []nodes.Child{
 				lander.Text("-"),
 			}),
-			lander.Html("div", map[string]interface{}{}, []lander.Child{
+			lander.Html("div", nodes.Attributes{}, []nodes.Child{
 				lander.Text(fmt.Sprintf("Counter is at: %d", a.count)),
 			}).Style("padding-left: 1rem; padding-right: 1rem; color: red;"),
-			lander.Html("button", map[string]interface{}{
-				"click": func(*lander.DOMEvent) error {
+			lander.Html("button", nodes.Attributes{
+				"click": func(*events.DOMEvent) error {
 					a.count += 1
 					return a.env.Update()
 				},
-			}, []lander.Child{
+			}, []nodes.Child{
 				lander.Text("+"),
 			}),
 		}).Style("display: flex;"),
-		lander.Html("div", map[string]interface{}{}, []lander.Child{
+		lander.Html("div", nodes.Attributes{}, []nodes.Child{
 			lander.Text("Testing the style updates"),
 		}).Style(fmt.Sprintf("margin-top: 1rem; width: 200px; border: %dpx solid red;", a.count)),
 	}).Style("padding: 1rem;")
@@ -51,7 +53,7 @@ func main() {
 	app := counterApp{}
 
 	env, err := lander.RenderInto(
-		lander.Component(app.render, map[string]interface{}{}, []lander.Child{}), "#app")
+		lander.Component(app.render, struct{}{}, []nodes.Child{}), "#app")
 	if err != nil {
 		fmt.Println(err)
 	}

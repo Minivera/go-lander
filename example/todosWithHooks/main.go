@@ -3,8 +3,11 @@ package main
 import (
 	"fmt"
 
+	"github.com/minivera/go-lander/events"
+
 	"github.com/minivera/go-lander"
 	"github.com/minivera/go-lander/context"
+	"github.com/minivera/go-lander/nodes"
 )
 
 type addTodoForm struct {
@@ -13,7 +16,7 @@ type addTodoForm struct {
 	value string
 }
 
-func (a *addTodoForm) render(_ context.Context, props lander.Props, _ lander.Children) lander.Child {
+func (a *addTodoForm) render(_ context.Context, props nodes.Props, _ nodes.Children) nodes.Child {
 	onAdd, ok := props["onAdd"].(func(value string) error)
 	if !ok {
 		fmt.Println("addTodoForm expects a function as its onAdd prop")
@@ -21,19 +24,19 @@ func (a *addTodoForm) render(_ context.Context, props lander.Props, _ lander.Chi
 		panic("addTodoForm expects a function as its onAdd prop")
 	}
 
-	return lander.Html("div", map[string]interface{}{}, []lander.Child{
-		lander.Html("input", map[string]interface{}{
+	return lander.Html("div", nodes.Attributes{}, []nodes.Child{
+		lander.Html("input", nodes.Attributes{
 			"value": a.value,
-			"change": func(event *lander.DOMEvent) error {
+			"change": func(event *events.DOMEvent) error {
 				a.value = event.JSEvent().Get("target").Get("value").String()
 				return a.env.Update()
 			},
-		}, []lander.Child{}).Style("margin-right: 1rem;"),
-		lander.Html("button", map[string]interface{}{
-			"click": func(*lander.DOMEvent) error {
+		}, []nodes.Child{}).Style("margin-right: 1rem;"),
+		lander.Html("button", nodes.Attributes{
+			"click": func(*events.DOMEvent) error {
 				return onAdd(a.value)
 			},
-		}, []lander.Child{
+		}, []nodes.Child{
 			lander.Text("Add"),
 		}),
 	}).Style("margin-top: 1rem; display: flex")
@@ -45,7 +48,7 @@ type todo struct {
 	completed bool
 }
 
-func todoComponent(ctx context.Context, props lander.Props, _ lander.Children) lander.Child {
+func todoComponent(ctx context.Context, props nodes.Props, _ nodes.Children) nodes.Child {
 	onDelete, ok := props["onDelete"].(func() error)
 	if !ok {
 		fmt.Println("todoComponent expects a function as its onDelete prop")
@@ -69,40 +72,37 @@ func todoComponent(ctx context.Context, props lander.Props, _ lander.Children) l
 
 	ctx.OnMount(func() error {
 		fmt.Printf("HOOKS: Testing onMount of todo component '%s'\n", currentTodo.name)
-
 		return nil
 	})
 
 	ctx.OnRender(func() error {
 		fmt.Printf("HOOKS: Testing onRender of todo component '%s'\n", currentTodo.name)
-
 		return nil
 	})
 
 	ctx.OnUnmount(func() error {
 		fmt.Printf("HOOKS: Testing OnUnmount of todo component '%s'\n", currentTodo.name)
-
 		return nil
 	})
 
-	return lander.Html("li", map[string]interface{}{}, []lander.Child{
-		lander.Html("div", map[string]interface{}{}, []lander.Child{
-			lander.Html("input", map[string]interface{}{
+	return lander.Html("li", nodes.Attributes{}, []nodes.Child{
+		lander.Html("div", nodes.Attributes{}, []nodes.Child{
+			lander.Html("input", nodes.Attributes{
 				"type":    "checkbox",
 				"checked": currentTodo.completed,
-				"change": func(*lander.DOMEvent) error {
+				"change": func(*events.DOMEvent) error {
 					return onChange()
 				},
-			}, []lander.Child{}),
-			lander.Html("strong", map[string]interface{}{}, []lander.Child{
+			}, []nodes.Child{}),
+			lander.Html("strong", nodes.Attributes{}, []nodes.Child{
 				lander.Text(currentTodo.name),
 			}),
 		}).Style("display: inline-flex; align-items: center; padding-right: 1rem;"),
-		lander.Html("button", map[string]interface{}{
-			"click": func(*lander.DOMEvent) error {
+		lander.Html("button", nodes.Attributes{
+			"click": func(*events.DOMEvent) error {
 				return onDelete()
 			},
-		}, []lander.Child{
+		}, []nodes.Child{
 			lander.Text("X"),
 		}).Style("display: inline;"),
 	})
@@ -178,12 +178,12 @@ func (a *todosApp) addTodo(name string) {
 	a.todos = todos
 }
 
-func (a *todosApp) render(_ context.Context, _ lander.Props, _ lander.Children) lander.Child {
+func (a *todosApp) render(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
 	fmt.Printf("Todos are %v\n", a.todos)
-	todos := make([]lander.Child, len(a.todos))
+	todos := make([]nodes.Child, len(a.todos))
 
 	for i, todo := range a.todos {
-		todos[i] = lander.Component(todoComponent, map[string]interface{}{
+		todos[i] = lander.Component(todoComponent, nodes.Props{
 			"onDelete": func() error {
 				a.deleteTodo(todo.id)
 				return a.env.Update()
@@ -192,20 +192,20 @@ func (a *todosApp) render(_ context.Context, _ lander.Props, _ lander.Children) 
 				a.updateTodo(todo.id, !todo.completed)
 				return a.env.Update()
 			},
-			"todo": todo,
-		}, []lander.Child{})
+			"currentTodo": todo,
+		}, []nodes.Child{})
 	}
 
-	return lander.Html("div", map[string]interface{}{}, []lander.Child{
-		lander.Html("h1", map[string]interface{}{}, []lander.Child{
+	return lander.Html("div", nodes.Attributes{}, []nodes.Child{
+		lander.Html("h1", nodes.Attributes{}, []nodes.Child{
 			lander.Text("Sample todo app"),
 		}),
-		lander.Html("div", map[string]interface{}{}, []lander.Child{
-			lander.Html("h2", map[string]interface{}{}, []lander.Child{
+		lander.Html("div", nodes.Attributes{}, []nodes.Child{
+			lander.Html("h2", nodes.Attributes{}, []nodes.Child{
 				lander.Text("Todos"),
 			}),
-			lander.Html("ul", map[string]interface{}{}, todos).Style("margin-top: 1rem;"),
-			lander.Component(a.form.render, map[string]interface{}{
+			lander.Html("ul", nodes.Attributes{}, todos).Style("margin-top: 1rem;"),
+			lander.Component(a.form.render, nodes.Props{
 				"onAdd": func(value string) error {
 					a.addTodo(value)
 					// Reset the form's state
@@ -214,7 +214,7 @@ func (a *todosApp) render(_ context.Context, _ lander.Props, _ lander.Children) 
 					}
 					return a.env.Update()
 				},
-			}, []lander.Child{}),
+			}, []nodes.Child{}),
 		}).Style("max-width: 300px;"),
 	}).Style("padding: 1rem;")
 }
@@ -234,7 +234,7 @@ func main() {
 	}
 
 	env, err := lander.RenderInto(
-		lander.Component(app.render, map[string]interface{}{}, []lander.Child{}), "#app")
+		lander.Component(app.render, nodes.Props{}, []nodes.Child{}), "#app")
 	if err != nil {
 		fmt.Println(err)
 	}

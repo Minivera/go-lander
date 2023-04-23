@@ -41,3 +41,7 @@ func (n *TextNode) Diff(other Node) bool {
 
 	return otherAsText.Text != n.Text
 }
+
+func (n *TextNode) Type() NodeType {
+	return TextNodeType
+}

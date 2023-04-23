@@ -2,19 +2,23 @@
 
 package nodes
 
-import "github.com/minivera/go-lander/context"
-
 type Child = Node
 type Children = []Child
 
-type Props = map[string]interface{}
+type NodeType uint8
 
-type FunctionComponent func(ctx context.Context, attributes Props, children Children) Child
+const (
+	NoneType     NodeType = 0
+	HTMLNodeType NodeType = 1
+	TextNodeType NodeType = 2
+	FuncNodeType NodeType = 3
+)
 
 type Node interface {
 	Position(parent Node)
 	ToString() string
 	Diff(other Node) bool
+	Type() NodeType
 }
 
 type baseNode struct {
@@ -38,4 +42,8 @@ func (n *baseNode) Diff(other Node) bool {
 	// Don't check for siblings since those may change without impacting this
 	// node.
 	return otherAsBase.Parent == n.Parent
+}
+
+func (n *baseNode) Type() NodeType {
+	return NoneType
 }

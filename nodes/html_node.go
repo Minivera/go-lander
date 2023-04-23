@@ -8,6 +8,8 @@ import (
 	"github.com/minivera/go-lander/events"
 )
 
+type Attributes = map[string]interface{}
+
 type HTMLNode struct {
 	baseNode
 
@@ -25,7 +27,7 @@ type HTMLNode struct {
 	Styles         []string
 }
 
-func NewHTMLNode(tag string, attributes map[string]interface{}, children []Node) *HTMLNode {
+func NewHTMLNode(tag string, attributes Attributes, children []Node) *HTMLNode {
 	attrs, props, listeners := ExtractAttributes(attributes)
 
 	var id string
@@ -210,6 +212,10 @@ func (n *HTMLNode) Diff(other Node) bool {
 	}
 
 	return false
+}
+
+func (n *HTMLNode) Type() NodeType {
+	return HTMLNodeType
 }
 
 func (n *HTMLNode) InsertChildren(node Node, position int) error {

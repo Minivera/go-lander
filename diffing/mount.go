@@ -4,9 +4,7 @@ import (
 	"syscall/js"
 
 	"github.com/minivera/go-lander/context"
-
 	"github.com/minivera/go-lander/events"
-
 	"github.com/minivera/go-lander/nodes"
 )
 
@@ -65,7 +63,8 @@ func RecursivelyMount(listenerFunc func(listener events.EventListenerFunc, this 
 
 		renderResult, childStyles := RecursivelyMount(listenerFunc, document, domElement, child)
 
-		if typedNode, ok := renderResult.(*nodes.FuncNode); ok {
+		if renderResult.Type() == nodes.FuncNodeType {
+			typedNode := any(renderResult).(*nodes.FuncNode)
 			// If the child was another function node, then we should recursively render it until we
 			// have a pure HTML node
 			child, _ = RecursivelyMount(listenerFunc, document, domElement, typedNode)
