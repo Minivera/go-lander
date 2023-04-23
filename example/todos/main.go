@@ -3,10 +3,9 @@ package main
 import (
 	"fmt"
 
-	"github.com/minivera/go-lander/events"
-
 	"github.com/minivera/go-lander"
 	"github.com/minivera/go-lander/context"
+	"github.com/minivera/go-lander/events"
 	"github.com/minivera/go-lander/nodes"
 )
 

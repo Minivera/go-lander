@@ -62,7 +62,7 @@ func (e *DomEnvironment) renderIntoRoot() error {
 
 	var styles []string
 	var renderedTree nodes.Node
-	err := context.WithNewContext(nil, func() error {
+	err := context.WithNewContext(e.Update, nil, func() error {
 		renderedTree, styles = diffing.RecursivelyMount(e.handleDOMEvent, document, rootElem, e.app)
 		e.prevContext = context.CurrentContext
 		return nil
@@ -95,7 +95,7 @@ func (e *DomEnvironment) renderIntoRoot() error {
 
 func (e *DomEnvironment) patchDom() error {
 	var styles []string
-	err := context.WithNewContext(e.prevContext, func() error {
+	err := context.WithNewContext(e.Update, e.prevContext, func() error {
 		patches, renderedStyles, err := diffing.GeneratePatches(e.handleDOMEvent, nil, nil, e.tree, e.app)
 		if err != nil {
 			return err

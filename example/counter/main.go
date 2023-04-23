@@ -15,7 +15,7 @@ type counterApp struct {
 	count int
 }
 
-func (a *counterApp) render(_ context.Context, _ struct{}, _ nodes.Children) nodes.Child {
+func (a *counterApp) render(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
 	return lander.Html("div", nodes.Attributes{}, []nodes.Child{
 		lander.Html("h1", nodes.Attributes{}, []nodes.Child{
 			lander.Text("Sample counter app"),
@@ -53,7 +53,7 @@ func main() {
 	app := counterApp{}
 
 	env, err := lander.RenderInto(
-		lander.Component(app.render, struct{}{}, []nodes.Child{}), "#app")
+		lander.Component(app.render, nodes.Props{}, []nodes.Child{}), "#app")
 	if err != nil {
 		fmt.Println(err)
 	}

@@ -25,9 +25,13 @@ type Context interface {
 	HasValue(name string) bool
 	GetValue(name string) interface{}
 	SetValue(name string, value interface{})
+
+	Update() error
 }
 
 type baseContext struct {
+	updateFunc func() error
+
 	previousContext *baseContext
 
 	contextValues map[string]interface{}
@@ -37,10 +41,11 @@ type baseContext struct {
 	componentEvents     map[interface{}]map[string]func() error
 }
 
-func WithNewContext(previousContext Context, call func() error) error {
+func WithNewContext(updateFunc func() error, previousContext Context, call func() error) error {
 	fmt.Println("Start new context")
 	prevContext := CurrentContext
 	localContext := &baseContext{
+		updateFunc:    updateFunc,
 		contextValues: map[string]interface{}{},
 
 		contextPerComponent: map[interface{}][]string{},
@@ -190,4 +195,8 @@ func (c *baseContext) GetValue(name string) interface{} {
 
 func (c *baseContext) SetValue(name string, value interface{}) {
 	c.contextValues[name] = value
+}
+
+func (c *baseContext) Update() error {
+	return c.updateFunc()
 }

@@ -3,20 +3,14 @@ package main
 import (
 	"fmt"
 
-	"github.com/minivera/go-lander/events"
-
 	"github.com/minivera/go-lander"
 	"github.com/minivera/go-lander/context"
+	"github.com/minivera/go-lander/events"
+	"github.com/minivera/go-lander/hooks"
 	"github.com/minivera/go-lander/nodes"
 )
 
-type addTodoForm struct {
-	env *lander.DomEnvironment
-
-	value string
-}
-
-func (a *addTodoForm) render(_ context.Context, props nodes.Props, _ nodes.Children) nodes.Child {
+func addTodoForm(ctx context.Context, props nodes.Props, _ nodes.Children) nodes.Child {
 	onAdd, ok := props["onAdd"].(func(value string) error)
 	if !ok {
 		fmt.Println("addTodoForm expects a function as its onAdd prop")
@@ -24,17 +18,24 @@ func (a *addTodoForm) render(_ context.Context, props nodes.Props, _ nodes.Child
 		panic("addTodoForm expects a function as its onAdd prop")
 	}
 
+	value, setValue := hooks.UseState[string](ctx, "")
+
 	return lander.Html("div", nodes.Attributes{}, []nodes.Child{
 		lander.Html("input", nodes.Attributes{
-			"value": a.value,
+			"value": value,
 			"change": func(event *events.DOMEvent) error {
-				a.value = event.JSEvent().Get("target").Get("value").String()
-				return a.env.Update()
+				value = event.JSEvent().Get("target").Get("value").String()
+				return setValue(value)
 			},
 		}, []nodes.Child{}).Style("margin-right: 1rem;"),
 		lander.Html("button", nodes.Attributes{
 			"click": func(*events.DOMEvent) error {
-				return onAdd(a.value)
+				err := onAdd(value)
+				if err != nil {
+					return err
+				}
+
+				return setValue("")
 			},
 		}, []nodes.Child{
 			lander.Text("Add"),
@@ -48,7 +49,7 @@ type todo struct {
 	completed bool
 }
 
-func todoComponent(ctx context.Context, props nodes.Props, _ nodes.Children) nodes.Child {
+func todoComponent(_ context.Context, props nodes.Props, _ nodes.Children) nodes.Child {
 	onDelete, ok := props["onDelete"].(func() error)
 	if !ok {
 		fmt.Println("todoComponent expects a function as its onDelete prop")
@@ -69,21 +70,6 @@ func todoComponent(ctx context.Context, props nodes.Props, _ nodes.Children) nod
 		// TODO: This is pretty terrible, improve. Maybe make props a struct?
 		panic("todoComponent expects a todo as its todo prop")
 	}
-
-	ctx.OnMount(func() error {
-		fmt.Printf("HOOKS: Testing onMount of todo component '%s'\n", currentTodo.name)
-		return nil
-	})
-
-	ctx.OnRender(func() error {
-		fmt.Printf("HOOKS: Testing onRender of todo component '%s'\n", currentTodo.name)
-		return nil
-	})
-
-	ctx.OnUnmount(func() error {
-		fmt.Printf("HOOKS: Testing OnUnmount of todo component '%s'\n", currentTodo.name)
-		return nil
-	})
 
 	return lander.Html("li", nodes.Attributes{}, []nodes.Child{
 		lander.Html("div", nodes.Attributes{}, []nodes.Child{
@@ -109,138 +95,120 @@ func todoComponent(ctx context.Context, props nodes.Props, _ nodes.Children) nod
 
 }
 
-type todosApp struct {
-	env *lander.DomEnvironment
+func todosApp(ctx context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
+	todos, setTodos := hooks.UseState[[]todo](ctx, []todo{
+		{
+			id:        0,
+			name:      "write more examples",
+			completed: false,
+		},
+	})
 
-	todos []todo
-	form  addTodoForm
-}
+	updateTodo := func(todoId int, completed bool) error {
+		todos := make([]todo, len(todos))
 
-func (a *todosApp) updateTodo(todoId int, completed bool) {
-	todos := make([]todo, len(a.todos))
-
-	for i, current := range a.todos {
-		if todoId == current.id {
-			todos[i] = todo{
-				id:        i,
-				name:      current.name,
-				completed: completed,
+		for i, current := range todos {
+			if todoId == current.id {
+				todos[i] = todo{
+					id:        i,
+					name:      current.name,
+					completed: completed,
+				}
+			} else {
+				todos[i] = todo{
+					id:        i,
+					name:      current.name,
+					completed: current.completed,
+				}
 			}
-		} else {
+		}
+
+		return setTodos(todos)
+	}
+
+	deleteTodo := func(todoId int) error {
+		todos := make([]todo, len(todos)-1)
+
+		count := 0
+		for _, current := range todos {
+			if current.id == todoId {
+				continue
+			}
+
+			todos[count] = todo{
+				id:        count,
+				name:      current.name,
+				completed: current.completed,
+			}
+			count += 1
+		}
+
+		return setTodos(todos)
+	}
+
+	addTodo := func(name string) error {
+		todos := make([]todo, len(todos))
+
+		for i, current := range todos {
 			todos[i] = todo{
 				id:        i,
 				name:      current.name,
 				completed: current.completed,
 			}
 		}
+
+		todos = append(todos, todo{
+			id:        len(todos),
+			name:      name,
+			completed: false,
+		})
+
+		return setTodos(todos)
 	}
 
-	a.todos = todos
-}
+	fmt.Printf("Todos are %v\n", todos)
+	todosComponents := make([]nodes.Child, len(todos))
 
-func (a *todosApp) deleteTodo(todoId int) {
-	todos := make([]todo, len(a.todos)-1)
-
-	count := 0
-	for _, current := range a.todos {
-		if current.id == todoId {
-			continue
-		}
-
-		todos[count] = todo{
-			id:        count,
-			name:      current.name,
-			completed: current.completed,
-		}
-		count += 1
-	}
-
-	a.todos = todos
-}
-
-func (a *todosApp) addTodo(name string) {
-	todos := make([]todo, len(a.todos))
-
-	for i, current := range a.todos {
-		todos[i] = todo{
-			id:        i,
-			name:      current.name,
-			completed: current.completed,
-		}
-	}
-
-	todos = append(todos, todo{
-		id:        len(todos),
-		name:      name,
-		completed: false,
-	})
-
-	a.todos = todos
-}
-
-func (a *todosApp) render(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
-	fmt.Printf("Todos are %v\n", a.todos)
-	todos := make([]nodes.Child, len(a.todos))
-
-	for i, todo := range a.todos {
-		todos[i] = lander.Component(todoComponent, nodes.Props{
+	for i, todo := range todos {
+		todosComponents[i] = lander.Component(todoComponent, nodes.Props{
 			"onDelete": func() error {
-				a.deleteTodo(todo.id)
-				return a.env.Update()
+				return deleteTodo(todo.id)
 			},
 			"onChange": func() error {
-				a.updateTodo(todo.id, !todo.completed)
-				return a.env.Update()
+				return updateTodo(todo.id, !todo.completed)
 			},
-			"currentTodo": todo,
+			"todo": todo,
 		}, []nodes.Child{})
 	}
 
-	return lander.Html("div", nodes.Attributes{}, []nodes.Child{
-		lander.Html("h1", nodes.Attributes{}, []nodes.Child{
-			lander.Text("Sample todo app"),
-		}),
+	return lander.Component(hooks.Provider, nodes.Props{}, []nodes.Child{
 		lander.Html("div", nodes.Attributes{}, []nodes.Child{
-			lander.Html("h2", nodes.Attributes{}, []nodes.Child{
-				lander.Text("Todos"),
+			lander.Html("h1", nodes.Attributes{}, []nodes.Child{
+				lander.Text("Sample todo app"),
 			}),
-			lander.Html("ul", nodes.Attributes{}, todos).Style("margin-top: 1rem;"),
-			lander.Component(a.form.render, nodes.Props{
-				"onAdd": func(value string) error {
-					a.addTodo(value)
-					// Reset the form's state
-					a.form = addTodoForm{
-						env: a.env,
-					}
-					return a.env.Update()
-				},
-			}, []nodes.Child{}),
-		}).Style("max-width: 300px;"),
-	}).Style("padding: 1rem;")
+			lander.Html("div", nodes.Attributes{}, []nodes.Child{
+				lander.Html("h2", nodes.Attributes{}, []nodes.Child{
+					lander.Text("Todos"),
+				}),
+				lander.Html("ul", nodes.Attributes{}, todosComponents).Style("margin-top: 1rem;"),
+				lander.Component(addTodoForm, nodes.Props{
+					"onAdd": func(value string) error {
+						return addTodo(value)
+					},
+				}, []nodes.Child{}),
+			}).Style("max-width: 300px;"),
+		}).Style("padding: 1rem;"),
+	})
 }
 
 func main() {
 	c := make(chan bool)
 
-	app := todosApp{
-		todos: []todo{
-			{
-				id:        0,
-				name:      "write more examples",
-				completed: false,
-			},
-		},
-		form: addTodoForm{},
-	}
-
-	env, err := lander.RenderInto(
-		lander.Component(app.render, nodes.Props{}, []nodes.Child{}), "#app")
+	_, err := lander.RenderInto(
+		lander.Component(todosApp, nodes.Props{}, []nodes.Child{}), "#app")
 	if err != nil {
 		fmt.Println(err)
 	}
-
-	app.env = env
-	app.form.env = env
 
 	<-c
 }
