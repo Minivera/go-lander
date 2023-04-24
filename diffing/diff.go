@@ -80,9 +80,6 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 			// any component.
 			fmt.Println("Types were different and new node is a component, rendering and keep going")
 			context.RegisterComponentContext("render", typedNode)
-			// We register unmount here since a change in component types means the old structure
-			// will be unmounted through the replace.
-			context.RegisterComponentContext("unmount", lastComponent)
 			return GeneratePatches(listenerFunc, typedNode, prev, old, typedNode.Render(context.CurrentContext))
 		}
 

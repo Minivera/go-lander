@@ -19,13 +19,16 @@ func addTodoForm(ctx context.Context, props nodes.Props, _ nodes.Children) nodes
 	}
 
 	value, setValue := hooks.UseState[string](ctx, "")
+	fmt.Printf("Form state is %v\n", value)
 
 	return lander.Html("div", nodes.Attributes{}, []nodes.Child{
 		lander.Html("input", nodes.Attributes{
 			"value": value,
 			"change": func(event *events.DOMEvent) error {
 				value = event.JSEvent().Get("target").Get("value").String()
-				return setValue(value)
+				return setValue(func(_ string) string {
+					return value
+				})
 			},
 		}, []nodes.Child{}).Style("margin-right: 1rem;"),
 		lander.Html("button", nodes.Attributes{
@@ -35,7 +38,9 @@ func addTodoForm(ctx context.Context, props nodes.Props, _ nodes.Children) nodes
 					return err
 				}
 
-				return setValue("")
+				return setValue(func(_ string) string {
+					return ""
+				})
 			},
 		}, []nodes.Child{
 			lander.Text("Add"),
@@ -105,65 +110,71 @@ func todosApp(ctx context.Context, _ nodes.Props, _ nodes.Children) nodes.Child 
 	})
 
 	updateTodo := func(todoId int, completed bool) error {
-		todos := make([]todo, len(todos))
+		return setTodos(func(todos []todo) []todo {
+			newTodos := make([]todo, len(todos))
 
-		for i, current := range todos {
-			if todoId == current.id {
-				todos[i] = todo{
-					id:        i,
-					name:      current.name,
-					completed: completed,
+			for i, current := range todos {
+				if todoId == current.id {
+					newTodos[i] = todo{
+						id:        i,
+						name:      current.name,
+						completed: completed,
+					}
+				} else {
+					newTodos[i] = todo{
+						id:        i,
+						name:      current.name,
+						completed: current.completed,
+					}
 				}
-			} else {
-				todos[i] = todo{
+			}
+
+			return newTodos
+		})
+	}
+
+	deleteTodo := func(todoId int) error {
+		return setTodos(func(todos []todo) []todo {
+			newTodos := make([]todo, len(todos)-1)
+
+			count := 0
+			for _, current := range todos {
+				if current.id == todoId {
+					continue
+				}
+
+				newTodos[count] = todo{
+					id:        count,
+					name:      current.name,
+					completed: current.completed,
+				}
+				count += 1
+			}
+
+			return newTodos
+		})
+	}
+
+	addTodo := func(name string) error {
+		return setTodos(func(todos []todo) []todo {
+			newTodos := make([]todo, len(todos))
+
+			for i, current := range todos {
+				newTodos[i] = todo{
 					id:        i,
 					name:      current.name,
 					completed: current.completed,
 				}
 			}
-		}
 
-		return setTodos(todos)
-	}
+			newTodos = append(newTodos, todo{
+				id:        len(newTodos),
+				name:      name,
+				completed: false,
+			})
 
-	deleteTodo := func(todoId int) error {
-		todos := make([]todo, len(todos)-1)
-
-		count := 0
-		for _, current := range todos {
-			if current.id == todoId {
-				continue
-			}
-
-			todos[count] = todo{
-				id:        count,
-				name:      current.name,
-				completed: current.completed,
-			}
-			count += 1
-		}
-
-		return setTodos(todos)
-	}
-
-	addTodo := func(name string) error {
-		todos := make([]todo, len(todos))
-
-		for i, current := range todos {
-			todos[i] = todo{
-				id:        i,
-				name:      current.name,
-				completed: current.completed,
-			}
-		}
-
-		todos = append(todos, todo{
-			id:        len(todos),
-			name:      name,
-			completed: false,
+			return newTodos
 		})
-
-		return setTodos(todos)
 	}
 
 	fmt.Printf("Todos are %v\n", todos)
@@ -181,31 +192,31 @@ func todosApp(ctx context.Context, _ nodes.Props, _ nodes.Children) nodes.Child 
 		}, []nodes.Child{})
 	}
 
-	return lander.Component(hooks.Provider, nodes.Props{}, []nodes.Child{
+	return lander.Html("div", nodes.Attributes{}, []nodes.Child{
+		lander.Html("h1", nodes.Attributes{}, []nodes.Child{
+			lander.Text("Sample todo app"),
+		}),
 		lander.Html("div", nodes.Attributes{}, []nodes.Child{
-			lander.Html("h1", nodes.Attributes{}, []nodes.Child{
-				lander.Text("Sample todo app"),
+			lander.Html("h2", nodes.Attributes{}, []nodes.Child{
+				lander.Text("Todos"),
 			}),
-			lander.Html("div", nodes.Attributes{}, []nodes.Child{
-				lander.Html("h2", nodes.Attributes{}, []nodes.Child{
-					lander.Text("Todos"),
-				}),
-				lander.Html("ul", nodes.Attributes{}, todosComponents).Style("margin-top: 1rem;"),
-				lander.Component(addTodoForm, nodes.Props{
-					"onAdd": func(value string) error {
-						return addTodo(value)
-					},
-				}, []nodes.Child{}),
-			}).Style("max-width: 300px;"),
-		}).Style("padding: 1rem;"),
-	})
+			lander.Html("ul", nodes.Attributes{}, todosComponents).Style("margin-top: 1rem;"),
+			lander.Component(addTodoForm, nodes.Props{
+				"onAdd": func(value string) error {
+					return addTodo(value)
+				},
+			}, []nodes.Child{}),
+		}).Style("max-width: 300px;"),
+	}).Style("padding: 1rem;")
 }
 
 func main() {
 	c := make(chan bool)
 
 	_, err := lander.RenderInto(
-		lander.Component(todosApp, nodes.Props{}, []nodes.Child{}), "#app")
+		lander.Component(hooks.Provider, nodes.Props{}, []nodes.Child{
+			lander.Component(todosApp, nodes.Props{}, []nodes.Child{}),
+		}), "#app")
 	if err != nil {
 		fmt.Println(err)
 	}

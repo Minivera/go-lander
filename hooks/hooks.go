@@ -8,8 +8,13 @@ import (
 )
 
 func useInternalMemo[T any](ctx context.Context, defaultValue T,
-	deps []interface{}) (bool, T, func(val T) error) {
+	deps []interface{}) (bool, T, func(func(T) T) error) {
 
+	if !ctx.HasValue("lander_states") || !ctx.HasValue("lander_active_state") {
+		panic("hooks were used outside of a hook provider, make sure to wrap your entire app in a `lander.Component(hooks.Provider)`")
+	}
+
+	fmt.Printf("attempting to setup state for %v\n", defaultValue)
 	activeState, activeStateOk := ctx.GetValue("lander_active_state").(*stateChain)
 	states, statesOk := ctx.GetValue("lander_states").(*stateChain)
 	changed := false
@@ -23,7 +28,9 @@ func useInternalMemo[T any](ctx context.Context, defaultValue T,
 			next:    nil,
 		}
 		ctx.SetValue("lander_states", states)
+		fmt.Printf("states were empty, creating new empty states to is %T, %v\n", states, states)
 		activeState = states
+		activeStateOk = true
 	}
 
 	fmt.Printf("fetched active state is %T, %v\n", activeState, activeState)
@@ -49,7 +56,7 @@ func useInternalMemo[T any](ctx context.Context, defaultValue T,
 		}
 		currentState.next = realActiveState
 	} else {
-		fmt.Printf("Using nil active state %v, %t\n", activeState, activeState == nil)
+		fmt.Printf("Using existing active state %v, %t\n", activeState, activeState == nil)
 		realActiveState = activeState
 	}
 
@@ -65,6 +72,7 @@ func useInternalMemo[T any](ctx context.Context, defaultValue T,
 	})
 
 	ctx.OnUnmount(func() error {
+		fmt.Println("Unmounting states")
 		// On unmount, remove this state from the chain, so it is not reused in the future
 		if ctx.HasValue("lander_states") {
 			states := ctx.GetValue("lander_states").(*stateChain)
@@ -81,15 +89,16 @@ func useInternalMemo[T any](ctx context.Context, defaultValue T,
 		return nil
 	})
 
+	fmt.Printf("setting active state to %T, %v\n", realActiveState.next, realActiveState.next)
 	ctx.SetValue("lander_active_state", realActiveState.next)
-	return changed, realActiveState.state.(T), func(val T) error {
-		realActiveState.state = val
+	return changed, realActiveState.state.(T), func(setter func(val T) T) error {
+		realActiveState.state = setter(realActiveState.state.(T))
 		return ctx.Update()
 	}
 }
 
-func UseState[T any](ctx context.Context, defaultValue T) (T, func(val T) error) {
-	_, state, stateSetter := useInternalMemo[T](ctx, defaultValue, []interface{}{})
+func UseState[T any](ctx context.Context, defaultValue T) (T, func(func(val T) T) error) {
+	_, state, stateSetter := useInternalMemo[T](ctx, defaultValue, nil)
 	return state, stateSetter
 }
 

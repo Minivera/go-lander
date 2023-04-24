@@ -1,6 +1,7 @@
 package diffing
 
 import (
+	"fmt"
 	"syscall/js"
 
 	"github.com/minivera/go-lander/context"
@@ -21,6 +22,7 @@ func RecursivelyMount(listenerFunc func(listener events.EventListenerFunc, this 
 	var children []nodes.Node
 	toReturn := currentNode
 
+	fmt.Printf("Mounting %T node, %v\n", currentNode, currentNode)
 	switch typedNode := currentNode.(type) {
 	case *nodes.FuncNode:
 		// If the current node is a func node, we want to render it and "forget" it exists
@@ -28,6 +30,14 @@ func RecursivelyMount(listenerFunc func(listener events.EventListenerFunc, this 
 		context.RegisterComponentContext("mount", typedNode)
 		context.RegisterComponentContext("render", typedNode)
 		toReturn = typedNode.Render(context.CurrentContext)
+
+		if toReturn.Type() == nodes.FuncNodeType {
+			typedNode := toReturn.(*nodes.FuncNode)
+			// If the child was another function node, then we should recursively render it until we
+			// have a pure HTML node
+			return RecursivelyMount(listenerFunc, document, domElement, typedNode)
+		}
+
 		children = []nodes.Node{toReturn}
 	case *nodes.HTMLNode:
 		add = true
@@ -62,13 +72,6 @@ func RecursivelyMount(listenerFunc func(listener events.EventListenerFunc, this 
 		child.Position(currentNode)
 
 		renderResult, childStyles := RecursivelyMount(listenerFunc, document, domElement, child)
-
-		if renderResult.Type() == nodes.FuncNodeType {
-			typedNode := any(renderResult).(*nodes.FuncNode)
-			// If the child was another function node, then we should recursively render it until we
-			// have a pure HTML node
-			child, _ = RecursivelyMount(listenerFunc, document, domElement, typedNode)
-		}
 
 		// If the current node is an HTML node, replace the child in its children array with
 		// the final child here. For most cases, that should do nothing, but for function nodes
