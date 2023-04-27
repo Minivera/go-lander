@@ -15,7 +15,7 @@ import (
 // executed sequentially. GeneratePatches expects the tree it is given to be made exclusively of HTML
 // nodes (HTML and text), and no components.
 func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this js.Value, args []js.Value) interface{},
-	lastComponent *nodes.FuncNode, prev, old, new nodes.Node) ([]Patch, []string, error) {
+	prev nodes.Node, prevDOMNode js.Value, old, new nodes.Node) ([]Patch, []string, error) {
 
 	var patches []Patch
 	var currentStyles []string
@@ -26,77 +26,67 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 	fmt.Printf("Diffing %T, %v against %T, %v\n", old, old, new, new)
 	if new == nil {
 		if typedNode, ok := old.(*nodes.FuncNode); ok {
-			// If we hit a function not when there's a need to replace, then we should render
-			// that function node and keep going as-is. The final tree should never include
-			// any component.
-			fmt.Println("New was missing and old node is a component, rendering and keep going")
-			context.RegisterComponent(lastComponent)
-			return GeneratePatches(listenerFunc, typedNode, prev, typedNode.Render(context.CurrentContext), new)
+			// If we hit a function as the old node when there's a need to remove, then we
+			// should do nothing and trigger an unmount on the old node, then keep going so we
+			// can remove the HTML nodes.
+			fmt.Println("New was missing and old node is a component, triggering a unmount")
+			context.RegisterComponent(typedNode)
+			context.UnregisterAllComponentContexts(typedNode)
+			context.RegisterComponentContext("unmount", typedNode)
+			return GeneratePatches(listenerFunc, prev, prevDOMNode, typedNode.RenderResult, new)
 		}
 
 		fmt.Println("New was missing, removing")
 		// If the new is missing, then we should remove unneeded children
 		patches = append(patches, newPatchRemove(prev, old))
 
-		// Register the last seen component as now a unmount component if the first encountered dom node was
-		// to be removed
-		if lastComponent != nil {
-			context.UnregisterAllComponentContexts(lastComponent)
-			context.RegisterComponentContext("unmount", lastComponent)
-		}
-
 		return patches, currentStyles, nil
 	} else if old == nil {
-		if typedNode, ok := new.(*nodes.FuncNode); ok {
-			// If we hit a function not when there's a need to insert, then we should render
-			// that function node and keep going as-is. The final tree should never include
-			// any component.
-			fmt.Println("Old is missing and new node is a component, rendering and keep going")
-			context.RegisterComponentContext("render", typedNode)
-			return GeneratePatches(listenerFunc, typedNode, prev, old, typedNode.Render(context.CurrentContext))
-		}
-
 		fmt.Println("Old was missing, inserting")
 		// If the old node is missing, then we are mounting for the first time
-		patches = append(patches, newPatchInsert(listenerFunc, prev, new))
-
-		// Register the last seen component as now a mount component if the first encountered dom node was
-		// to be inserted
-		if lastComponent != nil {
-			context.RegisterComponentContext("mount", lastComponent)
-		}
+		patches = append(patches, newPatchInsert(listenerFunc, prevDOMNode, prev, new))
 
 		if typedNode, ok := new.(*nodes.HTMLNode); ok {
 			newChildren = typedNode.Children
 
 			currentStyles = append(currentStyles, typedNode.Styles...)
+		} else if typedNode, ok := new.(*nodes.FuncNode); ok {
+			// If we hit a function as the new node when there's a need to insert, then we
+			// should trigger a mount and render context.
+			fmt.Println("Old is missing and new node is a component, rendering")
+			context.RegisterComponent(typedNode)
+			context.RegisterComponentContext("render", typedNode)
+			context.RegisterComponentContext("mount", typedNode)
+			newChildren = nodes.Children{typedNode.Clone().Render(context.CurrentContext)}
 		}
 
 		return patches, currentStyles, nil
 	} else if reflect.TypeOf(old) != reflect.TypeOf(new) {
-		if typedNode, ok := new.(*nodes.FuncNode); ok {
-			// If we hit a function not when there's a need to replace, then we should render
-			// that function node and keep going as-is. The final tree should never include
-			// any component.
-			fmt.Println("Types were different and new node is a component, rendering and keep going")
-			context.RegisterComponentContext("render", typedNode)
-			return GeneratePatches(listenerFunc, typedNode, prev, old, typedNode.Render(context.CurrentContext))
-		}
-
 		fmt.Println("Types were different, replacing")
 		// If both nodes exist, but they are of a different type, replace and patch
-		patches = append(patches, newPatchReplace(listenerFunc, prev, old, new))
-
-		// Register the last seen component as now a mount component if the first encountered dom node was
-		// to be replaced
-		if lastComponent != nil {
-			context.RegisterComponentContext("mount", lastComponent)
-		}
+		patches = append(patches, newPatchReplace(listenerFunc, prevDOMNode, prev, old, new))
 
 		if typedNode, ok := new.(*nodes.HTMLNode); ok {
 			newChildren = typedNode.Children
 
 			currentStyles = append(currentStyles, typedNode.Styles...)
+		} else if typedNode, ok := new.(*nodes.FuncNode); ok {
+			// If we hit a function node as the new when there's a need to replace, then we
+			// should render that function node with render and mount contexts.
+			fmt.Println("Types were different and new node is a component, rendering")
+			context.RegisterComponent(typedNode)
+			context.RegisterComponentContext("render", typedNode)
+			context.RegisterComponentContext("mount", typedNode)
+			newChildren = nodes.Children{typedNode.Render(context.CurrentContext)}
+		}
+
+		if typedNode, ok := old.(*nodes.FuncNode); ok {
+			// If we hit a function node as the old when there's a need to replace, then we should
+			// trigger an unmount on the old node and not render. We don't care about the old node here
+			// as we should never rerender it.
+			fmt.Println("Types were different and old node is a component, keep going on the new children")
+			context.UnregisterAllComponentContexts(typedNode)
+			context.RegisterComponentContext("unmount", typedNode)
 		}
 
 		return patches, currentStyles, nil
@@ -104,6 +94,16 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 		fmt.Println("Nodes were different, updating")
 		// If both nodes have the same type, but have differences
 		switch typedNode := old.(type) {
+		case *nodes.FuncNode:
+			// If we hit a function node for both nodes, and they are different, then we should render the
+			// new node and assign its result as the result of the old node. We can then keep going on
+			// both children. No need to update the function nodes themselves
+			oldChildren = nodes.Children{typedNode.RenderResult}
+			newConverted := new.(*nodes.FuncNode)
+
+			context.RegisterComponent(newConverted)
+			context.RegisterComponentContext("render", newConverted)
+			newChildren = nodes.Children{newConverted.Render(context.CurrentContext)}
 		case *nodes.HTMLNode:
 			patches = append(patches, newPatchHTML(listenerFunc, typedNode, new.(*nodes.HTMLNode)))
 			oldChildren = typedNode.Children
@@ -111,6 +111,7 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 			newChildren = newConverted.Children
 
 			currentStyles = append(currentStyles, new.(*nodes.HTMLNode).Styles...)
+			prevDOMNode = typedNode.DomNode
 		case *nodes.TextNode:
 			patches = append(patches, newPatchText(prev, typedNode, new.(*nodes.TextNode).Text))
 		default:
@@ -122,9 +123,21 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 		if oldConverted, ok := old.(*nodes.HTMLNode); ok {
 			oldChildren = oldConverted.Children
 			currentStyles = append(currentStyles, oldConverted.Styles...)
-		}
-		if newConverted, ok := new.(*nodes.HTMLNode); ok {
+			patches = append(patches, newPatchListeners(listenerFunc, oldConverted))
+
+			newConverted := new.(*nodes.HTMLNode)
 			newChildren = newConverted.Children
+			prevDOMNode = oldConverted.DomNode
+		} else if oldConverted, ok := old.(*nodes.FuncNode); ok {
+			// For function nodes, use the previous render result as the old
+			// children and update with the new children. Even if they are the same,
+			// they may render differently due to state changes.
+			oldChildren = nodes.Children{oldConverted.RenderResult}
+			newConverted := new.(*nodes.FuncNode)
+
+			context.RegisterComponent(newConverted)
+			context.RegisterComponentContext("render", newConverted)
+			newChildren = nodes.Children{newConverted.Render(context.CurrentContext)}
 		}
 	}
 
@@ -136,7 +149,7 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 			newChild = newChildren[count]
 		}
 
-		childPatches, styles, err := GeneratePatches(listenerFunc, nil, old, child, newChild)
+		childPatches, styles, err := GeneratePatches(listenerFunc, old, prevDOMNode, child, newChild)
 		if err != nil {
 			return nil, []string{}, err
 		}
@@ -152,7 +165,7 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 	}
 
 	for _, child := range newChildren[count:] {
-		childPatches, styles, err := GeneratePatches(listenerFunc, nil, old, nil, child)
+		childPatches, styles, err := GeneratePatches(listenerFunc, old, prevDOMNode, nil, child)
 		if err != nil {
 			return nil, []string{}, err
 		}

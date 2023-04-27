@@ -215,6 +215,8 @@ func main() {
 
 	_, err := lander.RenderInto(
 		lander.Component(hooks.Provider, nodes.Props{}, []nodes.Child{
+			// TODO: This is always the same pointer, will need to do a deep clone of the root
+			// TODO: component's given children.
 			lander.Component(todosApp, nodes.Props{}, []nodes.Child{}),
 		}), "#app")
 	if err != nil {

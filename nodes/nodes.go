@@ -15,33 +15,19 @@ const (
 )
 
 type Node interface {
-	Position(parent Node)
 	ToString() string
 	Diff(other Node) bool
 	Type() NodeType
 }
 
-type baseNode struct {
-	Parent Node
-}
-
-func (n *baseNode) Position(parent Node) {
-	n.Parent = parent
-}
+type baseNode struct{}
 
 func (n *baseNode) ToString() string {
 	return ""
 }
 
-func (n *baseNode) Diff(other Node) bool {
-	otherAsBase, ok := other.(*baseNode)
-	if !ok {
-		return false
-	}
-
-	// Don't check for siblings since those may change without impacting this
-	// node.
-	return otherAsBase.Parent == n.Parent
+func (n *baseNode) Diff(_ Node) bool {
+	return false
 }
 
 func (n *baseNode) Type() NodeType {

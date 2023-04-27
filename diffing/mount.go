@@ -10,35 +10,25 @@ import (
 )
 
 func RecursivelyMount(listenerFunc func(listener events.EventListenerFunc, this js.Value, args []js.Value) interface{},
-	document js.Value, lastElement js.Value, currentNode nodes.Node) (nodes.Node, []string) {
+	document js.Value, lastElement js.Value, currentNode nodes.Node) []string {
 
 	if currentNode == nil {
-		return currentNode, []string{}
+		return []string{}
 	}
 
 	add := false
 	domElement := lastElement
 	var styles []string
 	var children []nodes.Node
-	toReturn := currentNode
 
 	fmt.Printf("Mounting %T node, %v\n", currentNode, currentNode)
 	switch typedNode := currentNode.(type) {
 	case *nodes.FuncNode:
-		// If the current node is a func node, we want to render it and "forget" it exists
-		// replacing it with whatever it rendered.
+		// If the current node is a func node, we want to render it and keep going
+		// so we eventually hit a normal HTML node.
 		context.RegisterComponentContext("mount", typedNode)
 		context.RegisterComponentContext("render", typedNode)
-		toReturn = typedNode.Render(context.CurrentContext)
-
-		if toReturn.Type() == nodes.FuncNodeType {
-			typedNode := toReturn.(*nodes.FuncNode)
-			// If the child was another function node, then we should recursively render it until we
-			// have a pure HTML node
-			return RecursivelyMount(listenerFunc, document, domElement, typedNode)
-		}
-
-		children = []nodes.Node{toReturn}
+		children = []nodes.Node{typedNode.Render(context.CurrentContext)}
 	case *nodes.HTMLNode:
 		add = true
 		domElement = nodes.NewHTMLElement(document, typedNode)
@@ -61,25 +51,15 @@ func RecursivelyMount(listenerFunc func(listener events.EventListenerFunc, this 
 		domElement = document.Call("createTextNode", typedNode.Text)
 		typedNode.Mount(domElement)
 	default:
-		return toReturn, []string{}
+		return []string{}
 	}
 
-	for i, child := range children {
+	for _, child := range children {
 		if child == nil {
 			continue
 		}
 
-		child.Position(currentNode)
-
-		renderResult, childStyles := RecursivelyMount(listenerFunc, document, domElement, child)
-
-		// If the current node is an HTML node, replace the child in its children array with
-		// the final child here. For most cases, that should do nothing, but for function nodes
-		// it should replace it with the real final result.
-		if typedNode, ok := currentNode.(*nodes.HTMLNode); ok {
-			typedNode.Children[i] = renderResult
-		}
-
+		childStyles := RecursivelyMount(listenerFunc, document, domElement, child)
 		for _, style := range childStyles {
 			styles = append(styles, style)
 		}
@@ -89,5 +69,5 @@ func RecursivelyMount(listenerFunc func(listener events.EventListenerFunc, this 
 		lastElement.Call("appendChild", domElement)
 	}
 
-	return toReturn, styles
+	return styles
 }

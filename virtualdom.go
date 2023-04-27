@@ -25,8 +25,7 @@ func init() {
 type DomEnvironment struct {
 	root string
 
-	app  nodes.Node
-	tree nodes.Node
+	tree *nodes.FuncNode
 
 	prevContext context.Context
 }
@@ -34,7 +33,7 @@ type DomEnvironment struct {
 func RenderInto(rootNode *nodes.FuncNode, root string) (*DomEnvironment, error) {
 	env := &DomEnvironment{
 		root: root,
-		app:  rootNode,
+		tree: rootNode,
 	}
 
 	err := env.renderIntoRoot()
@@ -61,9 +60,8 @@ func (e *DomEnvironment) renderIntoRoot() error {
 	}
 
 	var styles []string
-	var renderedTree nodes.Node
 	err := context.WithNewContext(e.Update, nil, func() error {
-		renderedTree, styles = diffing.RecursivelyMount(e.handleDOMEvent, document, rootElem, e.app)
+		styles = diffing.RecursivelyMount(e.handleDOMEvent, document, rootElem, e.tree)
 		e.prevContext = context.CurrentContext
 		return nil
 	})
@@ -71,7 +69,7 @@ func (e *DomEnvironment) renderIntoRoot() error {
 		return err
 	}
 
-	e.tree = renderedTree
+	e.printTree(e.tree, 0)
 
 	m := minify.New()
 	m.AddFunc("text/css", css.Minify)
@@ -94,9 +92,20 @@ func (e *DomEnvironment) renderIntoRoot() error {
 }
 
 func (e *DomEnvironment) patchDom() error {
+	rootElem := document.Call("querySelector", e.root)
+	if !rootElem.Truthy() {
+		return fmt.Errorf("failed to find mount parent using query selector %q", e.root)
+	}
+
 	var styles []string
 	err := context.WithNewContext(e.Update, e.prevContext, func() error {
-		patches, renderedStyles, err := diffing.GeneratePatches(e.handleDOMEvent, nil, nil, e.tree, e.app)
+		patches, renderedStyles, err := diffing.GeneratePatches(
+			e.handleDOMEvent,
+			nil,
+			rootElem,
+			e.tree,
+			e.tree.Clone(),
+		)
 		if err != nil {
 			return err
 		}
@@ -115,6 +124,8 @@ func (e *DomEnvironment) patchDom() error {
 	if err != nil {
 		return err
 	}
+
+	e.printTree(e.tree, 0)
 
 	styleTag := document.Call("querySelector", "#lander-style-tag")
 	if !styleTag.Truthy() {
@@ -152,4 +163,32 @@ func (e *DomEnvironment) handleDOMEvent(listener events.EventListenerFunc, this 
 	}
 
 	return true
+}
+
+func (e *DomEnvironment) printTree(currentNode nodes.Node, layers int) {
+	prefix := ""
+
+	for i := 0; i < layers; i++ {
+		prefix += "|--"
+	}
+
+	fmt.Printf("%s Node %p %T (%v)\n", prefix, currentNode, currentNode, currentNode)
+
+	var children nodes.Children
+	switch typedNode := currentNode.(type) {
+	case *nodes.FuncNode:
+		children = []nodes.Node{typedNode.RenderResult}
+	case *nodes.HTMLNode:
+		children = typedNode.Children
+	default:
+		return
+	}
+
+	for _, child := range children {
+		if child == nil {
+			continue
+		}
+
+		e.printTree(child, layers+1)
+	}
 }

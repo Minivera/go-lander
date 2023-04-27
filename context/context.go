@@ -25,6 +25,7 @@ type Context interface {
 	HasValue(name string) bool
 	GetValue(name string) interface{}
 	SetValue(name string, value interface{})
+	IsDirty() bool
 
 	Update() error
 }
@@ -35,6 +36,7 @@ type baseContext struct {
 	previousContext *baseContext
 
 	contextValues map[string]interface{}
+	isDirty       bool
 
 	contextPerComponent map[interface{}][]string
 	currentComponent    interface{}
@@ -147,37 +149,33 @@ func (c *baseContext) triggerEvents() error {
 				continue
 			}
 
+			if name == "unmount" {
+				fmt.Printf("Searching for unmount listener of component %T in previous context\n", component)
+				// If the context is to unmount, then find the listener in the previous context instead
+				if c.previousContext == nil {
+					continue
+				}
+
+				listener, ok := c.previousContext.componentEvents[component]["unmount"]
+				if !ok {
+					// skip if the unmounted component doesn't trigger unmount
+					continue
+				}
+
+				fmt.Printf("Executing unmount with component %T\n", component)
+				err := listener()
+				if err != nil {
+					return fmt.Errorf("error in unmount listener for component. %w", err)
+				}
+
+				continue
+			}
+
 			fmt.Printf("Executing %s with component %T\n", name, component)
 			err := listener()
 			if err != nil {
 				return fmt.Errorf("error in %s listener for component. %w", name, err)
 			}
-		}
-	}
-
-	if c.previousContext == nil {
-		return nil
-	}
-
-	// Look up any component in the old context that was not processed in the new context. This
-	// means the component was unmounted and we should trigger the unmount
-	for component, events := range c.previousContext.componentEvents {
-		_, ok := c.componentEvents[component]
-		if ok {
-			// skip if the component was registered in the current component
-			continue
-		}
-
-		listener, ok := events["unmount"]
-		if !ok {
-			// skip if the unmounted component doesn't trigger unmount
-			continue
-		}
-
-		fmt.Printf("Executing unmount with component %T\n", component)
-		err := listener()
-		if err != nil {
-			return fmt.Errorf("error in unmount listener for component. %w", err)
 		}
 	}
 
@@ -195,8 +193,13 @@ func (c *baseContext) GetValue(name string) interface{} {
 
 func (c *baseContext) SetValue(name string, value interface{}) {
 	c.contextValues[name] = value
+	c.isDirty = true
 }
 
 func (c *baseContext) Update() error {
 	return c.updateFunc()
+}
+
+func (c *baseContext) IsDirty() bool {
+	return c.isDirty || (c.previousContext != nil && c.previousContext.isDirty)
 }
