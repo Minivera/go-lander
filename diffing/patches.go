@@ -154,7 +154,7 @@ func newPatchInsert(
 }
 
 func (p *patchInsert) Execute(document js.Value, styles *[]string) error {
-	fmt.Printf("Executing patch Insert on %T, %v\n", p.newNode, p.newNode)
+	fmt.Printf("Executing patch insert on %T, %v\n", p.newNode, p.newNode)
 	switch parent := p.parent.(type) {
 	case *nodes.FuncNode:
 		parent.RenderResult = p.newNode
@@ -281,7 +281,7 @@ func newPatchReplace(
 }
 
 func (p *patchReplace) Execute(document js.Value, styles *[]string) error {
-	fmt.Printf("Executing patch listeners on %T, %v\n", p.oldNode, p.oldNode)
+	fmt.Printf("Executing patch replace on %T, %v\n", p.oldNode, p.oldNode)
 	switch parent := p.parent.(type) {
 	case *nodes.FuncNode:
 		parent.RenderResult = p.newNode
@@ -296,6 +296,13 @@ func (p *patchReplace) Execute(document js.Value, styles *[]string) error {
 		err := parent.ReplaceChildren(p.oldNode, p.newNode)
 		if err != nil {
 			return err
+		}
+
+		var oldDomNode js.Value
+		if converted, ok := p.oldNode.(*nodes.HTMLNode); ok {
+			oldDomNode = converted.DomNode
+		} else if converted, ok := p.oldNode.(*nodes.TextNode); ok {
+			oldDomNode = converted.DomNode
 		}
 
 		switch typedNode := p.newNode.(type) {
@@ -316,19 +323,15 @@ func (p *patchReplace) Execute(document js.Value, styles *[]string) error {
 				}
 			}
 
-			parent.DomNode.Call("replaceChild", typedNode.DomNode, domElement)
+			parent.DomNode.Call("replaceChild", domElement, oldDomNode)
 		case *nodes.TextNode:
 			domElement := document.Call("createTextNode", typedNode.Text)
 			typedNode.Mount(domElement)
 
-			parent.DomNode.Call("replaceChild", typedNode.DomNode, domElement)
+			parent.DomNode.Call("replaceChild", domElement, oldDomNode)
 		case *nodes.FuncNode:
-			// Trigger a recursive mount for its render result
-			childStyles := RecursivelyMount(p.listenerFunc, document, parent.DomNode, typedNode.RenderResult)
-
-			for _, style := range childStyles {
-				*styles = append(*styles, style)
-			}
+			return newPatchReplace(p.listenerFunc, parent.DomNode, typedNode, p.oldNode, typedNode.RenderResult).
+				Execute(document, styles)
 		}
 	default:
 		// Ignore anything that's not dom related

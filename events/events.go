@@ -3,7 +3,6 @@
 package events
 
 import (
-	"sync"
 	"syscall/js"
 )
 
@@ -18,8 +17,6 @@ type EventListener struct {
 
 // DOMEvent is the base struct that contains the data for a DOM event triggered on the client.
 type DOMEvent struct {
-	sync.RWMutex
-
 	browserEvent js.Value
 	this         js.Value
 }

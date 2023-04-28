@@ -6,7 +6,7 @@ import (
 	"github.com/minivera/go-lander"
 	"github.com/minivera/go-lander/context"
 	"github.com/minivera/go-lander/events"
-	"github.com/minivera/go-lander/hooks"
+	"github.com/minivera/go-lander/experimental/hooks"
 	"github.com/minivera/go-lander/nodes"
 )
 
@@ -221,8 +221,6 @@ func main() {
 
 	_, err := lander.RenderInto(
 		lander.Component(hooks.Provider, nodes.Props{}, []nodes.Child{
-			// TODO: This is always the same pointer, will need to do a deep clone of the root
-			// TODO: component's given children.
 			lander.Component(todosApp, nodes.Props{}, []nodes.Child{}),
 		}), "#app")
 	if err != nil {

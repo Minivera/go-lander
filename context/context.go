@@ -44,7 +44,6 @@ type baseContext struct {
 }
 
 func WithNewContext(updateFunc func() error, previousContext Context, call func() error) error {
-	fmt.Println("Start new context")
 	prevContext := CurrentContext
 	localContext := &baseContext{
 		updateFunc:    updateFunc,
@@ -71,11 +70,13 @@ func WithNewContext(updateFunc func() error, previousContext Context, call func(
 		return err
 	}
 
-	if err := localContext.triggerEvents(); err != nil {
-		return err
-	}
+	// trigger this async, so we have finished restoring the tree before this happens
+	go func() {
+		if err := localContext.triggerEvents(); err != nil {
+			panic(err)
+		}
+	}()
 
-	fmt.Println("Stop new context")
 	CurrentContext = prevContext
 	return nil
 }

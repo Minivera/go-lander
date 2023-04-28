@@ -5,6 +5,7 @@ package lander
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"syscall/js"
 
 	"github.com/tdewolff/minify/v2"
@@ -23,6 +24,8 @@ func init() {
 }
 
 type DomEnvironment struct {
+	sync.RWMutex
+
 	root string
 
 	tree *nodes.FuncNode
@@ -35,6 +38,9 @@ func RenderInto(rootNode *nodes.FuncNode, root string) (*DomEnvironment, error) 
 		root: root,
 		tree: rootNode,
 	}
+
+	env.Lock()
+	defer env.Unlock()
 
 	err := env.renderIntoRoot()
 	if err != nil {
@@ -154,8 +160,8 @@ func (e *DomEnvironment) handleDOMEvent(listener events.EventListenerFunc, this 
 	event := events.NewDOMEvent(jsEvent, this)
 
 	// acquire exclusive lock before we actually process event
-	event.Lock()
-	defer event.Unlock()
+	e.Lock()
+	defer e.Unlock()
 	err := listener(event)
 	if err != nil {
 		// Return the error message

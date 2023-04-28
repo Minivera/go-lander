@@ -66,8 +66,6 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 		patches = append(patches, newPatchReplace(listenerFunc, prevDOMNode, prev, old, new))
 
 		if typedNode, ok := new.(*nodes.HTMLNode); ok {
-			newChildren = typedNode.Children
-
 			currentStyles = append(currentStyles, typedNode.Styles...)
 		} else if typedNode, ok := new.(*nodes.FuncNode); ok {
 			// If we hit a function node as the new when there's a need to replace, then we
@@ -106,13 +104,19 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 			context.RegisterComponentContext("render", typedNode)
 			newChildren = nodes.Children{newConverted.Clone().Render(context.CurrentContext)}
 		case *nodes.HTMLNode:
-			patches = append(patches, newPatchHTML(listenerFunc, typedNode, new.(*nodes.HTMLNode)))
-			oldChildren = typedNode.Children
 			newConverted := new.(*nodes.HTMLNode)
-			newChildren = newConverted.Children
+			if typedNode.Tag != newConverted.Tag {
+				// If the tags are different, this is not a diff, this is a replace
+				patches = append(patches, newPatchReplace(listenerFunc, prevDOMNode, prev, old, new))
+				currentStyles = append(currentStyles, newConverted.Styles...)
+			} else {
+				patches = append(patches, newPatchHTML(listenerFunc, typedNode, new.(*nodes.HTMLNode)))
+				oldChildren = typedNode.Children
+				newChildren = newConverted.Children
 
-			currentStyles = append(currentStyles, new.(*nodes.HTMLNode).Styles...)
-			prevDOMNode = typedNode.DomNode
+				currentStyles = append(currentStyles, new.(*nodes.HTMLNode).Styles...)
+				prevDOMNode = typedNode.DomNode
+			}
 		case *nodes.TextNode:
 			patches = append(patches, newPatchText(prev, typedNode, new.(*nodes.TextNode).Text))
 		default:
