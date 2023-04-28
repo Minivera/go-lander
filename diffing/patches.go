@@ -7,6 +7,8 @@ import (
 	"strings"
 	"syscall/js"
 
+	"github.com/minivera/go-lander/context"
+
 	"github.com/minivera/go-lander/events"
 	"github.com/minivera/go-lander/nodes"
 )
@@ -155,6 +157,7 @@ func newPatchInsert(
 
 func (p *patchInsert) Execute(document js.Value, styles *[]string) error {
 	fmt.Printf("Executing patch insert on %T, %v\n", p.newNode, p.newNode)
+	fmt.Printf("Parent is %T, %v\n", p.parent, p.parent)
 	switch parent := p.parent.(type) {
 	case *nodes.FuncNode:
 		parent.RenderResult = p.newNode
@@ -196,12 +199,12 @@ func (p *patchInsert) Execute(document js.Value, styles *[]string) error {
 			domElement = document.Call("createTextNode", typedNode.Text)
 			typedNode.Mount(domElement)
 		case *nodes.FuncNode:
-			// Trigger a recursive mount for its render result
-			childStyles := RecursivelyMount(p.listenerFunc, document, parent.DomNode, typedNode.RenderResult)
+			context.RegisterComponent(typedNode)
+			context.RegisterComponentContext("render", typedNode)
+			context.RegisterComponentContext("mount", typedNode)
 
-			for _, style := range childStyles {
-				*styles = append(*styles, style)
-			}
+			return newPatchInsert(p.listenerFunc, parent.DomNode, typedNode, typedNode.Clone().Render(context.CurrentContext)).
+				Execute(document, styles)
 		default:
 			// Ignore anything that's not dom related
 			return nil
@@ -330,7 +333,11 @@ func (p *patchReplace) Execute(document js.Value, styles *[]string) error {
 
 			parent.DomNode.Call("replaceChild", domElement, oldDomNode)
 		case *nodes.FuncNode:
-			return newPatchReplace(p.listenerFunc, parent.DomNode, typedNode, p.oldNode, typedNode.RenderResult).
+			context.RegisterComponent(typedNode)
+			context.RegisterComponentContext("render", typedNode)
+			context.RegisterComponentContext("mount", typedNode)
+
+			return newPatchReplace(p.listenerFunc, parent.DomNode, typedNode, p.oldNode, typedNode.Clone().Render(context.CurrentContext)).
 				Execute(document, styles)
 		}
 	default:

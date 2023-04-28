@@ -75,11 +75,6 @@ func todoComponent(ctx context.Context, props nodes.Props, _ nodes.Children) nod
 		panic("todoComponent expects a todo as its todo prop")
 	}
 
-	ctx.OnUnmount(func() error {
-		fmt.Printf("Trying out OnUnmount from todo component %v\n", currentTodo)
-		return nil
-	})
-
 	return lander.Html("li", nodes.Attributes{}, []nodes.Child{
 		lander.Html("div", nodes.Attributes{}, []nodes.Child{
 			lander.Html("input", nodes.Attributes{
@@ -118,7 +113,6 @@ func todosApp(ctx context.Context, _ nodes.Props, _ nodes.Children) nodes.Child 
 			newTodos := make([]todo, len(todos))
 
 			for i, current := range todos {
-				fmt.Printf("looking for todo id %d, checking against %d. Todo is %v\n", todoId, current.id, current)
 				if todoId == current.id {
 					newTodos[i] = todo{
 						id:        i,
@@ -222,7 +216,9 @@ func main() {
 	_, err := lander.RenderInto(
 		lander.Component(hooks.Provider, nodes.Props{}, []nodes.Child{
 			lander.Component(todosApp, nodes.Props{}, []nodes.Child{}),
-		}), "#app")
+		}),
+		"#app",
+	)
 	if err != nil {
 		fmt.Println(err)
 	}

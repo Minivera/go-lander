@@ -1,8 +1,6 @@
 package hooks
 
 import (
-	"fmt"
-
 	"github.com/minivera/go-lander/context"
 	"github.com/minivera/go-lander/nodes"
 )
@@ -16,7 +14,6 @@ type stateChain struct {
 }
 
 func Provider(context context.Context, _ nodes.Props, children nodes.Children) nodes.Child {
-	fmt.Println("Rendering hooks provider")
 	if !context.HasValue("lander_states") {
 		context.SetValue("lander_states", nil)
 	}

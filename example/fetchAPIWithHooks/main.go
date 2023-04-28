@@ -105,7 +105,9 @@ func main() {
 	_, err := lander.RenderInto(
 		lander.Component(hooks.Provider, nodes.Props{}, []nodes.Child{
 			lander.Component(fetchApp, nodes.Props{}, []nodes.Child{}),
-		}), "#app")
+		}),
+		"#app",
+	)
 	if err != nil {
 		fmt.Println(err)
 	}

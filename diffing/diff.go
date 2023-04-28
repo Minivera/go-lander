@@ -46,17 +46,7 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 		patches = append(patches, newPatchInsert(listenerFunc, prevDOMNode, prev, new))
 
 		if typedNode, ok := new.(*nodes.HTMLNode); ok {
-			newChildren = typedNode.Children
-
 			currentStyles = append(currentStyles, typedNode.Styles...)
-		} else if typedNode, ok := new.(*nodes.FuncNode); ok {
-			// If we hit a function as the new node when there's a need to insert, then we
-			// should trigger a mount and render context.
-			fmt.Println("Old is missing and new node is a component, rendering")
-			context.RegisterComponent(typedNode)
-			context.RegisterComponentContext("render", typedNode)
-			context.RegisterComponentContext("mount", typedNode)
-			newChildren = nodes.Children{typedNode.Clone().Render(context.CurrentContext)}
 		}
 
 		return patches, currentStyles, nil
@@ -67,14 +57,6 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 
 		if typedNode, ok := new.(*nodes.HTMLNode); ok {
 			currentStyles = append(currentStyles, typedNode.Styles...)
-		} else if typedNode, ok := new.(*nodes.FuncNode); ok {
-			// If we hit a function node as the new when there's a need to replace, then we
-			// should render that function node with render and mount contexts.
-			fmt.Println("Types were different and new node is a component, rendering")
-			context.RegisterComponent(typedNode)
-			context.RegisterComponentContext("render", typedNode)
-			context.RegisterComponentContext("mount", typedNode)
-			newChildren = nodes.Children{typedNode.Clone().Render(context.CurrentContext)}
 		}
 
 		if typedNode, ok := old.(*nodes.FuncNode); ok {
