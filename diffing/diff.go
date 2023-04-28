@@ -33,12 +33,11 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 			context.RegisterComponent(typedNode)
 			context.UnregisterAllComponentContexts(typedNode)
 			context.RegisterComponentContext("unmount", typedNode)
-			return GeneratePatches(listenerFunc, prev, prevDOMNode, typedNode.RenderResult, new)
 		}
 
 		fmt.Println("New was missing, removing")
 		// If the new is missing, then we should remove unneeded children
-		patches = append(patches, newPatchRemove(prev, old))
+		patches = append(patches, newPatchRemove(prev, prevDOMNode, old))
 
 		return patches, currentStyles, nil
 	} else if old == nil {
@@ -77,7 +76,7 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 			context.RegisterComponent(typedNode)
 			context.RegisterComponentContext("render", typedNode)
 			context.RegisterComponentContext("mount", typedNode)
-			newChildren = nodes.Children{typedNode.Render(context.CurrentContext)}
+			newChildren = nodes.Children{typedNode.Clone().Render(context.CurrentContext)}
 		}
 
 		if typedNode, ok := old.(*nodes.FuncNode); ok {
@@ -101,9 +100,11 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 			oldChildren = nodes.Children{typedNode.RenderResult}
 			newConverted := new.(*nodes.FuncNode)
 
-			context.RegisterComponent(newConverted)
-			context.RegisterComponentContext("render", newConverted)
-			newChildren = nodes.Children{newConverted.Render(context.CurrentContext)}
+			// Registering with old node so we can keep the references of the current
+			// tree alive. Otherwise, the context will track the wrong nodes.
+			context.RegisterComponent(typedNode)
+			context.RegisterComponentContext("render", typedNode)
+			newChildren = nodes.Children{newConverted.Clone().Render(context.CurrentContext)}
 		case *nodes.HTMLNode:
 			patches = append(patches, newPatchHTML(listenerFunc, typedNode, new.(*nodes.HTMLNode)))
 			oldChildren = typedNode.Children
@@ -135,9 +136,11 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 			oldChildren = nodes.Children{oldConverted.RenderResult}
 			newConverted := new.(*nodes.FuncNode)
 
-			context.RegisterComponent(newConverted)
-			context.RegisterComponentContext("render", newConverted)
-			newChildren = nodes.Children{newConverted.Render(context.CurrentContext)}
+			// Registering with old node so we can keep the references of the current
+			// tree alive. Otherwise, the context will track the wrong nodes.
+			context.RegisterComponent(oldConverted)
+			context.RegisterComponentContext("render", oldConverted)
+			newChildren = nodes.Children{newConverted.Clone().Render(context.CurrentContext)}
 		}
 	}
 

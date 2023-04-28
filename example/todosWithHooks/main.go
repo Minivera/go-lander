@@ -18,8 +18,7 @@ func addTodoForm(ctx context.Context, props nodes.Props, _ nodes.Children) nodes
 		panic("addTodoForm expects a function as its onAdd prop")
 	}
 
-	value, setValue := hooks.UseState[string](ctx, "")
-	fmt.Printf("Form state is %v\n", value)
+	value, setValue, getValue := hooks.UseState[string](ctx, "")
 
 	return lander.Html("div", nodes.Attributes{}, []nodes.Child{
 		lander.Html("input", nodes.Attributes{
@@ -33,7 +32,7 @@ func addTodoForm(ctx context.Context, props nodes.Props, _ nodes.Children) nodes
 		}, []nodes.Child{}).Style("margin-right: 1rem;"),
 		lander.Html("button", nodes.Attributes{
 			"click": func(*events.DOMEvent) error {
-				err := onAdd(value)
+				err := onAdd(getValue())
 				if err != nil {
 					return err
 				}
@@ -54,7 +53,7 @@ type todo struct {
 	completed bool
 }
 
-func todoComponent(_ context.Context, props nodes.Props, _ nodes.Children) nodes.Child {
+func todoComponent(ctx context.Context, props nodes.Props, _ nodes.Children) nodes.Child {
 	onDelete, ok := props["onDelete"].(func() error)
 	if !ok {
 		fmt.Println("todoComponent expects a function as its onDelete prop")
@@ -75,6 +74,11 @@ func todoComponent(_ context.Context, props nodes.Props, _ nodes.Children) nodes
 		// TODO: This is pretty terrible, improve. Maybe make props a struct?
 		panic("todoComponent expects a todo as its todo prop")
 	}
+
+	ctx.OnUnmount(func() error {
+		fmt.Printf("Trying out OnUnmount from todo component %v\n", currentTodo)
+		return nil
+	})
 
 	return lander.Html("li", nodes.Attributes{}, []nodes.Child{
 		lander.Html("div", nodes.Attributes{}, []nodes.Child{
@@ -101,7 +105,7 @@ func todoComponent(_ context.Context, props nodes.Props, _ nodes.Children) nodes
 }
 
 func todosApp(ctx context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
-	todos, setTodos := hooks.UseState[[]todo](ctx, []todo{
+	todos, setTodos, _ := hooks.UseState[[]todo](ctx, []todo{
 		{
 			id:        0,
 			name:      "write more examples",
@@ -114,6 +118,7 @@ func todosApp(ctx context.Context, _ nodes.Props, _ nodes.Children) nodes.Child 
 			newTodos := make([]todo, len(todos))
 
 			for i, current := range todos {
+				fmt.Printf("looking for todo id %d, checking against %d. Todo is %v\n", todoId, current.id, current)
 				if todoId == current.id {
 					newTodos[i] = todo{
 						id:        i,
@@ -177,18 +182,19 @@ func todosApp(ctx context.Context, _ nodes.Props, _ nodes.Children) nodes.Child 
 		})
 	}
 
-	fmt.Printf("Todos are %v\n", todos)
 	todosComponents := make([]nodes.Child, len(todos))
 
 	for i, todo := range todos {
+		localTodo := todo
 		todosComponents[i] = lander.Component(todoComponent, nodes.Props{
 			"onDelete": func() error {
-				return deleteTodo(todo.id)
+				return deleteTodo(localTodo.id)
 			},
 			"onChange": func() error {
-				return updateTodo(todo.id, !todo.completed)
+				fmt.Printf("Triggering on change of todo %d, %v\n", localTodo.id, localTodo)
+				return updateTodo(localTodo.id, !localTodo.completed)
 			},
-			"todo": todo,
+			"todo": localTodo,
 		}, []nodes.Child{})
 	}
 

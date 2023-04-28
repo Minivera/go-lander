@@ -99,21 +99,19 @@ func UnregisterAllComponentContexts(component interface{}) {
 }
 
 func (c *baseContext) OnMount(listener func() error) {
-	fmt.Printf("registering OnMount for component %T, %v\n", c.currentComponent, c.currentComponent)
 	c.registerListener("mount", listener)
 }
 
 func (c *baseContext) OnRender(listener func() error) {
-	fmt.Printf("registering OnRender for component %T, %v\n", c.currentComponent, c.currentComponent)
 	c.registerListener("render", listener)
 }
 
 func (c *baseContext) OnUnmount(listener func() error) {
-	fmt.Printf("registering OnUnmount for component %T, %v\n", c.currentComponent, c.currentComponent)
 	c.registerListener("unmount", listener)
 }
 
 func (c *baseContext) registerListener(contextType string, listener func() error) {
+	fmt.Printf("Registering event type %s for component %T (%p) %v\n", contextType, c.currentComponent, c.currentComponent, c.currentComponent)
 	if _, ok := c.componentEvents[c.currentComponent]; !ok {
 		c.componentEvents[c.currentComponent] = map[string]func() error{}
 	}
@@ -123,41 +121,26 @@ func (c *baseContext) registerListener(contextType string, listener func() error
 
 func (c *baseContext) triggerEvents() error {
 	fmt.Printf("Trying to trigger events %v\n", c.componentEvents)
-	for component, events := range c.componentEvents {
+	for component, contextEvents := range c.contextPerComponent {
 		fmt.Printf("Trying to trigger events for component %T, %v\n", component, component)
-		fmt.Printf("Events are %v\n", events)
-
-		// Don't continue with this component if it was never registered
-		contexts, ok := c.contextPerComponent[component]
-		if !ok {
-			fmt.Printf("Component %T was never registered\n", component)
-			continue
-		}
+		fmt.Printf("Events are %v\n", contextEvents)
 
 		// Ignore any context listeners for contexts that are not set on this particular component
-		for name, listener := range events {
-			fmt.Printf("Testing for %s with component %T\n", name, component)
-			found := false
-			for _, context := range contexts {
-				if context == name {
-					found = true
-				}
-			}
-
-			if !found {
-				fmt.Printf("%s with component %T was never registered\n", name, component)
-				continue
-			}
-
+		for _, name := range contextEvents {
 			if name == "unmount" {
-				fmt.Printf("Searching for unmount listener of component %T in previous context\n", component)
+				fmt.Printf("Searching for unmount listener of component (%p) %T in previous context\n", component, component)
 				// If the context is to unmount, then find the listener in the previous context instead
 				if c.previousContext == nil {
 					continue
 				}
 
+				for component, events := range c.previousContext.componentEvents {
+					fmt.Printf("Previous context has component %T (%p) and events %v\n", component, component, events)
+				}
+
 				listener, ok := c.previousContext.componentEvents[component]["unmount"]
 				if !ok {
+					fmt.Printf("Listener for unmount was not found in previous context with component %T\n", component)
 					// skip if the unmounted component doesn't trigger unmount
 					continue
 				}
@@ -168,6 +151,20 @@ func (c *baseContext) triggerEvents() error {
 					return fmt.Errorf("error in unmount listener for component. %w", err)
 				}
 
+				continue
+			}
+
+			// Don't continue with this component if it was never registered
+			events, ok := c.componentEvents[component]
+			if !ok {
+				fmt.Printf("Component %T was never registered\n", component)
+				continue
+			}
+
+			fmt.Printf("Testing for %s with component %T\n", name, component)
+			listener, found := events[name]
+			if !found {
+				fmt.Printf("%s with component %T was never registered\n", name, component)
 				continue
 			}
 

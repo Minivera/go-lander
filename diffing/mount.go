@@ -26,6 +26,7 @@ func RecursivelyMount(listenerFunc func(listener events.EventListenerFunc, this 
 	case *nodes.FuncNode:
 		// If the current node is a func node, we want to render it and keep going
 		// so we eventually hit a normal HTML node.
+		context.RegisterComponent(typedNode)
 		context.RegisterComponentContext("mount", typedNode)
 		context.RegisterComponentContext("render", typedNode)
 		children = []nodes.Node{typedNode.Render(context.CurrentContext)}
