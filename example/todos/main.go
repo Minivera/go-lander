@@ -23,19 +23,19 @@ func (a *addTodoForm) render(_ context.Context, props nodes.Props, _ nodes.Child
 		panic("addTodoForm expects a function as its onAdd prop")
 	}
 
-	return lander.Html("div", nodes.Attributes{}, []nodes.Child{
+	return lander.Html("div", nodes.Attributes{}, nodes.Children{
 		lander.Html("input", nodes.Attributes{
 			"value": a.value,
 			"change": func(event *events.DOMEvent) error {
 				a.value = event.JSEvent().Get("target").Get("value").String()
 				return a.env.Update()
 			},
-		}, []nodes.Child{}).Style("margin-right: 1rem;"),
+		}, nodes.Children{}).Style("margin-right: 1rem;"),
 		lander.Html("button", nodes.Attributes{
 			"click": func(*events.DOMEvent) error {
 				return onAdd(a.value)
 			},
-		}, []nodes.Child{
+		}, nodes.Children{
 			lander.Text("Add"),
 		}),
 	}).Style("margin-top: 1rem; display: flex")
@@ -118,11 +118,11 @@ func (a *todosApp) addTodo(name string) {
 
 func (a *todosApp) render(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
 	fmt.Printf("Todos are %v\n", a.todos)
-	todos := make([]nodes.Child, len(a.todos))
+	todos := make(nodes.Children, len(a.todos))
 
 	for i, todo := range a.todos {
-		todos[i] = lander.Html("li", nodes.Attributes{}, []nodes.Child{
-			lander.Html("div", nodes.Attributes{}, []nodes.Child{
+		todos[i] = lander.Html("li", nodes.Attributes{}, nodes.Children{
+			lander.Html("div", nodes.Attributes{}, nodes.Children{
 				lander.Html("input", nodes.Attributes{
 					"type":    "checkbox",
 					"checked": todo.completed,
@@ -130,8 +130,8 @@ func (a *todosApp) render(_ context.Context, _ nodes.Props, _ nodes.Children) no
 						a.updateTodo(todo.id, !todo.completed)
 						return a.env.Update()
 					},
-				}, []nodes.Child{}),
-				lander.Html("strong", nodes.Attributes{}, []nodes.Child{
+				}, nodes.Children{}),
+				lander.Html("strong", nodes.Attributes{}, nodes.Children{
 					lander.Text(todo.name),
 				}),
 			}).Style("display: inline-flex; align-items: center; padding-right: 1rem;"),
@@ -140,18 +140,18 @@ func (a *todosApp) render(_ context.Context, _ nodes.Props, _ nodes.Children) no
 					a.deleteTodo(todo.id)
 					return a.env.Update()
 				},
-			}, []nodes.Child{
+			}, nodes.Children{
 				lander.Text("X"),
 			}).Style("display: inline;"),
 		})
 	}
 
-	return lander.Html("div", nodes.Attributes{}, []nodes.Child{
-		lander.Html("h1", nodes.Attributes{}, []nodes.Child{
+	return lander.Html("div", nodes.Attributes{}, nodes.Children{
+		lander.Html("h1", nodes.Attributes{}, nodes.Children{
 			lander.Text("Sample todo app"),
 		}),
-		lander.Html("div", nodes.Attributes{}, []nodes.Child{
-			lander.Html("h2", nodes.Attributes{}, []nodes.Child{
+		lander.Html("div", nodes.Attributes{}, nodes.Children{
+			lander.Html("h2", nodes.Attributes{}, nodes.Children{
 				lander.Text("Todos"),
 			}),
 			lander.Html("ul", nodes.Attributes{}, todos).Style("margin-top: 1rem;"),
@@ -164,7 +164,7 @@ func (a *todosApp) render(_ context.Context, _ nodes.Props, _ nodes.Children) no
 					}
 					return a.env.Update()
 				},
-			}, []nodes.Child{}),
+			}, nodes.Children{}),
 		}).Style("max-width: 300px;"),
 	}).Style("padding: 1rem;")
 }
@@ -184,7 +184,7 @@ func main() {
 	}
 
 	env, err := lander.RenderInto(
-		lander.Component(app.render, nodes.Props{}, []nodes.Child{}), "#app")
+		lander.Component(app.render, nodes.Props{}, nodes.Children{}), "#app")
 	if err != nil {
 		fmt.Println(err)
 	}

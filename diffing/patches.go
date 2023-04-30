@@ -78,6 +78,7 @@ func (p *patchHTML) Execute(_ js.Value, _ *[]string) error {
 	// Remove any event listeners to avoid old closures leaking into them
 	for event, listener := range p.oldNode.EventListeners {
 		p.oldNode.DomNode.Call("removeEventListener", event, listener.Wrapper)
+		listener.Wrapper.Release()
 	}
 
 	p.oldNode.Update(newAttributes)
@@ -122,6 +123,7 @@ func (p *patchListeners) Execute(_ js.Value, _ *[]string) error {
 	// Remove any event listeners to avoid old closures leaking into them
 	for event, listener := range p.oldNode.EventListeners {
 		p.oldNode.DomNode.Call("removeEventListener", event, listener.Wrapper)
+		listener.Wrapper.Release()
 	}
 
 	// Add new event listeners using the attributes

@@ -103,8 +103,8 @@ func main() {
 	c := make(chan bool)
 
 	_, err := lander.RenderInto(
-		lander.Component(hooks.Provider, nodes.Props{}, []nodes.Child{
-			lander.Component(fetchApp, nodes.Props{}, []nodes.Child{}),
+		lander.Component(hooks.Provider, nodes.Props{}, nodes.Children{
+			lander.Component(fetchApp, nodes.Props{}, nodes.Children{}),
 		}),
 		"#app",
 	)

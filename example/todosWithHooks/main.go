@@ -20,7 +20,7 @@ func addTodoForm(ctx context.Context, props nodes.Props, _ nodes.Children) nodes
 
 	value, setValue, getValue := hooks.UseState[string](ctx, "")
 
-	return lander.Html("div", nodes.Attributes{}, []nodes.Child{
+	return lander.Html("div", nodes.Attributes{}, nodes.Children{
 		lander.Html("input", nodes.Attributes{
 			"value": value,
 			"change": func(event *events.DOMEvent) error {
@@ -29,7 +29,7 @@ func addTodoForm(ctx context.Context, props nodes.Props, _ nodes.Children) nodes
 					return value
 				})
 			},
-		}, []nodes.Child{}).Style("margin-right: 1rem;"),
+		}, nodes.Children{}).Style("margin-right: 1rem;"),
 		lander.Html("button", nodes.Attributes{
 			"click": func(*events.DOMEvent) error {
 				err := onAdd(getValue())
@@ -41,7 +41,7 @@ func addTodoForm(ctx context.Context, props nodes.Props, _ nodes.Children) nodes
 					return ""
 				})
 			},
-		}, []nodes.Child{
+		}, nodes.Children{
 			lander.Text("Add"),
 		}),
 	}).Style("margin-top: 1rem; display: flex")
@@ -75,16 +75,16 @@ func todoComponent(ctx context.Context, props nodes.Props, _ nodes.Children) nod
 		panic("todoComponent expects a todo as its todo prop")
 	}
 
-	return lander.Html("li", nodes.Attributes{}, []nodes.Child{
-		lander.Html("div", nodes.Attributes{}, []nodes.Child{
+	return lander.Html("li", nodes.Attributes{}, nodes.Children{
+		lander.Html("div", nodes.Attributes{}, nodes.Children{
 			lander.Html("input", nodes.Attributes{
 				"type":    "checkbox",
 				"checked": currentTodo.completed,
 				"change": func(*events.DOMEvent) error {
 					return onChange()
 				},
-			}, []nodes.Child{}),
-			lander.Html("strong", nodes.Attributes{}, []nodes.Child{
+			}, nodes.Children{}),
+			lander.Html("strong", nodes.Attributes{}, nodes.Children{
 				lander.Text(currentTodo.name),
 			}),
 		}).Style("display: inline-flex; align-items: center; padding-right: 1rem;"),
@@ -92,7 +92,7 @@ func todoComponent(ctx context.Context, props nodes.Props, _ nodes.Children) nod
 			"click": func(*events.DOMEvent) error {
 				return onDelete()
 			},
-		}, []nodes.Child{
+		}, nodes.Children{
 			lander.Text("X"),
 		}).Style("display: inline;"),
 	})
@@ -176,7 +176,7 @@ func todosApp(ctx context.Context, _ nodes.Props, _ nodes.Children) nodes.Child 
 		})
 	}
 
-	todosComponents := make([]nodes.Child, len(todos))
+	todosComponents := make(nodes.Children, len(todos))
 
 	for i, todo := range todos {
 		localTodo := todo
@@ -189,15 +189,15 @@ func todosApp(ctx context.Context, _ nodes.Props, _ nodes.Children) nodes.Child 
 				return updateTodo(localTodo.id, !localTodo.completed)
 			},
 			"todo": localTodo,
-		}, []nodes.Child{})
+		}, nodes.Children{})
 	}
 
-	return lander.Html("div", nodes.Attributes{}, []nodes.Child{
-		lander.Html("h1", nodes.Attributes{}, []nodes.Child{
+	return lander.Html("div", nodes.Attributes{}, nodes.Children{
+		lander.Html("h1", nodes.Attributes{}, nodes.Children{
 			lander.Text("Sample todo app"),
 		}),
-		lander.Html("div", nodes.Attributes{}, []nodes.Child{
-			lander.Html("h2", nodes.Attributes{}, []nodes.Child{
+		lander.Html("div", nodes.Attributes{}, nodes.Children{
+			lander.Html("h2", nodes.Attributes{}, nodes.Children{
 				lander.Text("Todos"),
 			}),
 			lander.Html("ul", nodes.Attributes{}, todosComponents).Style("margin-top: 1rem;"),
@@ -205,7 +205,7 @@ func todosApp(ctx context.Context, _ nodes.Props, _ nodes.Children) nodes.Child 
 				"onAdd": func(value string) error {
 					return addTodo(value)
 				},
-			}, []nodes.Child{}),
+			}, nodes.Children{}),
 		}).Style("max-width: 300px;"),
 	}).Style("padding: 1rem;")
 }
@@ -214,8 +214,8 @@ func main() {
 	c := make(chan bool)
 
 	_, err := lander.RenderInto(
-		lander.Component(hooks.Provider, nodes.Props{}, []nodes.Child{
-			lander.Component(todosApp, nodes.Props{}, []nodes.Child{}),
+		lander.Component(hooks.Provider, nodes.Props{}, nodes.Children{
+			lander.Component(todosApp, nodes.Props{}, nodes.Children{}),
 		}),
 		"#app",
 	)

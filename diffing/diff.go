@@ -43,6 +43,7 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 	} else if old == nil {
 		fmt.Println("Old was missing, inserting")
 		// If the old node is missing, then we are mounting for the first time
+		// FIXME: When inserting, we'll need the index for nil elements in the tree!
 		patches = append(patches, newPatchInsert(listenerFunc, prevDOMNode, prev, new))
 
 		if typedNode, ok := new.(*nodes.HTMLNode); ok {

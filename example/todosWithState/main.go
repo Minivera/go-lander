@@ -37,7 +37,7 @@ func addTodoForm(ctx context.Context, props nodes.Props, _ nodes.Children) nodes
 		panic("addTodoForm expects the state store as its state prop")
 	}
 
-	return lander.Html("div", nodes.Attributes{}, []nodes.Child{
+	return lander.Html("div", nodes.Attributes{}, nodes.Children{
 		lander.Html("input", nodes.Attributes{
 			"value": currentState.currentAdd,
 			"change": func(event *events.DOMEvent) error {
@@ -49,7 +49,7 @@ func addTodoForm(ctx context.Context, props nodes.Props, _ nodes.Children) nodes
 					}
 				})
 			},
-		}, []nodes.Child{}).Style("margin-right: 1rem;"),
+		}, nodes.Children{}).Style("margin-right: 1rem;"),
 		lander.Html("button", nodes.Attributes{
 			"click": func(*events.DOMEvent) error {
 				return store.SetState(ctx, func(currentState appState) appState {
@@ -75,7 +75,7 @@ func addTodoForm(ctx context.Context, props nodes.Props, _ nodes.Children) nodes
 					}
 				})
 			},
-		}, []nodes.Child{
+		}, nodes.Children{
 			lander.Text("Add"),
 		}),
 	}).Style("margin-top: 1rem; display: flex")
@@ -97,16 +97,16 @@ func todoComponent(_ context.Context, props nodes.Props, _ nodes.Children) nodes
 		panic("todoComponent expects a todo as its todo prop")
 	}
 
-	return lander.Html("li", nodes.Attributes{}, []nodes.Child{
-		lander.Html("div", nodes.Attributes{}, []nodes.Child{
+	return lander.Html("li", nodes.Attributes{}, nodes.Children{
+		lander.Html("div", nodes.Attributes{}, nodes.Children{
 			lander.Html("input", nodes.Attributes{
 				"type":    "checkbox",
 				"checked": currentTodo.completed,
 				"change": func(*events.DOMEvent) error {
 					return onChange()
 				},
-			}, []nodes.Child{}),
-			lander.Html("strong", nodes.Attributes{}, []nodes.Child{
+			}, nodes.Children{}),
+			lander.Html("strong", nodes.Attributes{}, nodes.Children{
 				lander.Text(currentTodo.name),
 			}),
 		}).Style("display: inline-flex; align-items: center; padding-right: 1rem;"),
@@ -114,7 +114,7 @@ func todoComponent(_ context.Context, props nodes.Props, _ nodes.Children) nodes
 			"click": func(*events.DOMEvent) error {
 				return onDelete()
 			},
-		}, []nodes.Child{
+		}, nodes.Children{
 			lander.Text("X"),
 		}).Style("display: inline;"),
 	})
@@ -179,7 +179,7 @@ func todosApp(ctx context.Context, props nodes.Props, _ nodes.Children) nodes.Ch
 		})
 	}
 
-	todosComponents := make([]nodes.Child, len(currentState.todos))
+	todosComponents := make(nodes.Children, len(currentState.todos))
 
 	for i, todo := range currentState.todos {
 		localTodo := todo
@@ -192,15 +192,15 @@ func todosApp(ctx context.Context, props nodes.Props, _ nodes.Children) nodes.Ch
 				return updateTodo(localTodo.id, !localTodo.completed)
 			},
 			"todo": localTodo,
-		}, []nodes.Child{})
+		}, nodes.Children{})
 	}
 
-	return lander.Html("div", nodes.Attributes{}, []nodes.Child{
-		lander.Html("h1", nodes.Attributes{}, []nodes.Child{
+	return lander.Html("div", nodes.Attributes{}, nodes.Children{
+		lander.Html("h1", nodes.Attributes{}, nodes.Children{
 			lander.Text("Sample todo app"),
 		}),
-		lander.Html("div", nodes.Attributes{}, []nodes.Child{
-			lander.Html("h2", nodes.Attributes{}, []nodes.Child{
+		lander.Html("div", nodes.Attributes{}, nodes.Children{
+			lander.Html("h2", nodes.Attributes{}, nodes.Children{
 				lander.Text("Todos"),
 			}),
 			lander.Html("ul", nodes.Attributes{}, todosComponents).Style("margin-top: 1rem;"),
@@ -208,9 +208,9 @@ func todosApp(ctx context.Context, props nodes.Props, _ nodes.Children) nodes.Ch
 				"render": func(currentState appState) nodes.Child {
 					return lander.Component(addTodoForm, nodes.Props{
 						"state": currentState,
-					}, []nodes.Child{})
+					}, nodes.Children{})
 				},
-			}, []nodes.Child{}),
+			}, nodes.Children{}),
 		}).Style("max-width: 300px;"),
 	}).Style("padding: 1rem;")
 }
@@ -221,9 +221,9 @@ func main() {
 	_, err := lander.RenderInto(
 		lander.Component(store.Consumer, nodes.Props{
 			"render": func(currentState appState) nodes.Child {
-				return lander.Component(todosApp, nodes.Props{"state": currentState}, []nodes.Child{})
+				return lander.Component(todosApp, nodes.Props{"state": currentState}, nodes.Children{})
 			},
-		}, []nodes.Child{}),
+		}, nodes.Children{}),
 		"#app",
 	)
 	if err != nil {

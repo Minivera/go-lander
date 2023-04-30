@@ -117,7 +117,7 @@ func main() {
 	app := fetchApp{}
 
 	env, err := lander.RenderInto(
-		lander.Component(app.render, nodes.Props{}, []nodes.Child{}), "#app")
+		lander.Component(app.render, nodes.Props{}, nodes.Children{}), "#app")
 	if err != nil {
 		fmt.Println(err)
 	}
