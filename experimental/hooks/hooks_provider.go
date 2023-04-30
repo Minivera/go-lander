@@ -25,9 +25,5 @@ func Provider(context context.Context, _ nodes.Props, children nodes.Children) n
 		context.SetValue("lander_active_state", nil)
 	}
 
-	if len(children) != 1 {
-		panic("Provider expects only one children")
-	}
-
-	return children[0]
+	return nodes.NewFragmentNode(children)
 }

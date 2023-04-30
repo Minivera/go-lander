@@ -85,6 +85,13 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 			context.RegisterComponent(typedNode)
 			context.RegisterComponentContext("render", typedNode)
 			newChildren = nodes.Children{newConverted.Clone().Render(context.CurrentContext)}
+		case *nodes.FragmentNode:
+			// If we hit a function node for both nodes, and they are different, then we should render the
+			// new node and assign its result as the result of the old node. We can then keep going on
+			// both children. No need to update the function nodes themselves
+			oldChildren = typedNode.Children
+			newConverted := new.(*nodes.FragmentNode)
+			newChildren = newConverted.Children
 		case *nodes.HTMLNode:
 			newConverted := new.(*nodes.HTMLNode)
 			if typedNode.Tag != newConverted.Tag {
@@ -106,16 +113,8 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 		}
 	} else {
 		fmt.Println("No changes")
-		// If the two nodes are the same, still run on the children
-		if oldConverted, ok := old.(*nodes.HTMLNode); ok {
-			oldChildren = oldConverted.Children
-			currentStyles = append(currentStyles, oldConverted.Styles...)
-			patches = append(patches, newPatchListeners(listenerFunc, oldConverted))
-
-			newConverted := new.(*nodes.HTMLNode)
-			newChildren = newConverted.Children
-			prevDOMNode = oldConverted.DomNode
-		} else if oldConverted, ok := old.(*nodes.FuncNode); ok {
+		switch oldConverted := old.(type) {
+		case *nodes.FuncNode:
 			// For function nodes, use the previous render result as the old
 			// children and update with the new children. Even if they are the same,
 			// they may render differently due to state changes.
@@ -127,6 +126,18 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 			context.RegisterComponent(oldConverted)
 			context.RegisterComponentContext("render", oldConverted)
 			newChildren = nodes.Children{newConverted.Clone().Render(context.CurrentContext)}
+		case *nodes.FragmentNode:
+			oldChildren = oldConverted.Children
+			newConverted := new.(*nodes.FragmentNode)
+			newChildren = newConverted.Children
+		case *nodes.HTMLNode:
+			oldChildren = oldConverted.Children
+			currentStyles = append(currentStyles, oldConverted.Styles...)
+			patches = append(patches, newPatchListeners(listenerFunc, oldConverted))
+
+			newConverted := new.(*nodes.HTMLNode)
+			newChildren = newConverted.Children
+			prevDOMNode = oldConverted.DomNode
 		}
 	}
 

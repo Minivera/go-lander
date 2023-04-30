@@ -184,6 +184,8 @@ func (e *DomEnvironment) printTree(currentNode nodes.Node, layers int) {
 	switch typedNode := currentNode.(type) {
 	case *nodes.FuncNode:
 		children = []nodes.Node{typedNode.RenderResult}
+	case *nodes.FragmentNode:
+		children = typedNode.Children
 	case *nodes.HTMLNode:
 		children = typedNode.Children
 	default:

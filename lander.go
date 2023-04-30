@@ -20,6 +20,10 @@ func Text(text string) *nodes.TextNode {
 	return nodes.NewTextNode(text)
 }
 
-func Component(factory nodes.FunctionComponent, attributes nodes.Props, children nodes.Children) *nodes.FuncNode {
-	return nodes.NewFuncNode(factory, attributes, children)
+func Component(factory nodes.FunctionComponent, props nodes.Props, children nodes.Children) *nodes.FuncNode {
+	return nodes.NewFuncNode(factory, props, children)
+}
+
+func Fragment(children nodes.Children) *nodes.FragmentNode {
+	return nodes.NewFragmentNode(children)
 }

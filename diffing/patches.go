@@ -31,7 +31,7 @@ func newPatchText(parentNode nodes.Node, old *nodes.TextNode, text string) Patch
 	}
 }
 
-func (p *patchText) Execute(document js.Value, styles *[]string) error {
+func (p *patchText) Execute(_ js.Value, _ *[]string) error {
 	fmt.Printf("Executing patch Text on %T, %v\n", p.oldNode, p.oldNode)
 	p.oldNode.Update(p.newText)
 
@@ -55,7 +55,7 @@ func newPatchHTML(
 	}
 }
 
-func (p *patchHTML) Execute(document js.Value, styles *[]string) error {
+func (p *patchHTML) Execute(_ js.Value, _ *[]string) error {
 	fmt.Printf("Executing patch HTML on %T, %v\n", p.oldNode, p.oldNode)
 	newAttributes := make(map[string]interface{}, len(p.newNode.Attributes)+len(p.newNode.EventListeners)+2)
 
@@ -168,6 +168,18 @@ func (p *patchInsert) Execute(document js.Value, styles *[]string) error {
 		for _, style := range childStyles {
 			*styles = append(*styles, style)
 		}
+	case *nodes.FragmentNode:
+		err := parent.InsertChildren(p.newNode, -1)
+		if err != nil {
+			return err
+		}
+
+		// Trigger a recursive mount for its children
+		childStyles := RecursivelyMount(p.listenerFunc, document, p.closestDOMParent, p.newNode)
+
+		for _, style := range childStyles {
+			*styles = append(*styles, style)
+		}
 	case *nodes.HTMLNode:
 		err := parent.InsertChildren(p.newNode, -1)
 		if err != nil {
@@ -205,6 +217,19 @@ func (p *patchInsert) Execute(document js.Value, styles *[]string) error {
 
 			return newPatchInsert(p.listenerFunc, parent.DomNode, typedNode, typedNode.Clone().Render(context.CurrentContext)).
 				Execute(document, styles)
+		case *nodes.FragmentNode:
+			// Trigger a recursive mount for all its children
+			for _, child := range typedNode.Children {
+				if child == nil {
+					continue
+				}
+
+				childStyles := RecursivelyMount(p.listenerFunc, document, p.closestDOMParent, child)
+
+				for _, style := range childStyles {
+					*styles = append(*styles, style)
+				}
+			}
 		default:
 			// Ignore anything that's not dom related
 			return nil
@@ -244,6 +269,11 @@ func (p *patchRemove) Execute(document js.Value, styles *[]string) error {
 		if err != nil {
 			return err
 		}
+	case *nodes.FragmentNode:
+		err := typedNode.RemoveChildren(p.oldNode)
+		if err != nil {
+			return err
+		}
 	default:
 		// Ignore anything that's not dom related
 		return nil
@@ -256,6 +286,18 @@ func (p *patchRemove) Execute(document js.Value, styles *[]string) error {
 		p.closestDOMParent.Call("removeChild", typedNode.DomNode)
 	case *nodes.FuncNode:
 		return newPatchRemove(typedNode, p.closestDOMParent, typedNode.RenderResult).Execute(document, styles)
+	case *nodes.FragmentNode:
+		// Recursively remove all its children
+		for _, child := range typedNode.Children {
+			if child == nil {
+				continue
+			}
+
+			err := newPatchRemove(typedNode, p.closestDOMParent, child).Execute(document, styles)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
@@ -289,60 +331,104 @@ func (p *patchReplace) Execute(document js.Value, styles *[]string) error {
 	case *nodes.FuncNode:
 		parent.RenderResult = p.newNode
 
+		if oldConverted, ok := p.oldNode.(*nodes.HTMLNode); ok {
+			// If the old node was an HTML node, remove it so we can mount from fresh
+			p.closestDOMParent.Call("removeChild", oldConverted.DomNode)
+		}
+
 		// Trigger a recursive mount for its render result
 		childStyles := RecursivelyMount(p.listenerFunc, document, p.closestDOMParent, parent.RenderResult)
 
 		for _, style := range childStyles {
 			*styles = append(*styles, style)
 		}
+	case *nodes.FragmentNode:
+		err := parent.ReplaceChildren(p.oldNode, p.newNode)
+		if err != nil {
+			return err
+		}
+
+		return p.replaceChild(document, styles, p.closestDOMParent)
 	case *nodes.HTMLNode:
 		err := parent.ReplaceChildren(p.oldNode, p.newNode)
 		if err != nil {
 			return err
 		}
 
-		var oldDomNode js.Value
-		if converted, ok := p.oldNode.(*nodes.HTMLNode); ok {
-			oldDomNode = converted.DomNode
-		} else if converted, ok := p.oldNode.(*nodes.TextNode); ok {
-			oldDomNode = converted.DomNode
-		}
-
-		switch typedNode := p.newNode.(type) {
-		case *nodes.HTMLNode:
-			domElement := nodes.NewHTMLElement(document, typedNode)
-			typedNode.Mount(domElement)
-
-			// Trigger a recursive mount for all its children
-			for _, child := range typedNode.Children {
-				if child == nil {
-					continue
-				}
-
-				childStyles := RecursivelyMount(p.listenerFunc, document, domElement, child)
-
-				for _, style := range childStyles {
-					*styles = append(*styles, style)
-				}
-			}
-
-			parent.DomNode.Call("replaceChild", domElement, oldDomNode)
-		case *nodes.TextNode:
-			domElement := document.Call("createTextNode", typedNode.Text)
-			typedNode.Mount(domElement)
-
-			parent.DomNode.Call("replaceChild", domElement, oldDomNode)
-		case *nodes.FuncNode:
-			context.RegisterComponent(typedNode)
-			context.RegisterComponentContext("render", typedNode)
-			context.RegisterComponentContext("mount", typedNode)
-
-			return newPatchReplace(p.listenerFunc, parent.DomNode, typedNode, p.oldNode, typedNode.Clone().Render(context.CurrentContext)).
-				Execute(document, styles)
-		}
+		return p.replaceChild(document, styles, parent.DomNode)
 	default:
 		// Ignore anything that's not dom related
 		return nil
+	}
+
+	return nil
+}
+
+func (p *patchReplace) replaceChild(document js.Value, styles *[]string, parentDOMNode js.Value) error {
+	var oldDomNode js.Value
+	if converted, ok := p.oldNode.(*nodes.HTMLNode); ok {
+		oldDomNode = converted.DomNode
+	} else if converted, ok := p.oldNode.(*nodes.TextNode); ok {
+		oldDomNode = converted.DomNode
+	} else {
+		return nil
+	}
+
+	switch typedNode := p.newNode.(type) {
+	case *nodes.HTMLNode:
+		domElement := nodes.NewHTMLElement(document, typedNode)
+		typedNode.Mount(domElement)
+
+		// Trigger a recursive mount for all its children
+		for _, child := range typedNode.Children {
+			if child == nil {
+				continue
+			}
+
+			childStyles := RecursivelyMount(p.listenerFunc, document, domElement, child)
+
+			for _, style := range childStyles {
+				*styles = append(*styles, style)
+			}
+		}
+
+		parentDOMNode.Call("replaceChild", domElement, oldDomNode)
+	case *nodes.TextNode:
+		domElement := document.Call("createTextNode", typedNode.Text)
+		typedNode.Mount(domElement)
+
+		parentDOMNode.Call("replaceChild", domElement, oldDomNode)
+	case *nodes.FuncNode:
+		context.RegisterComponent(typedNode)
+		context.RegisterComponentContext("render", typedNode)
+		context.RegisterComponentContext("mount", typedNode)
+
+		return newPatchReplace(p.listenerFunc, parentDOMNode, typedNode, p.oldNode, typedNode.Clone().Render(context.CurrentContext)).
+			Execute(document, styles)
+	case *nodes.FragmentNode:
+		if len(typedNode.Children) < 1 {
+			return nil
+		}
+
+		// Replace the last node with the first children of the fragment
+		err := newPatchReplace(p.listenerFunc, parentDOMNode, typedNode, p.oldNode, typedNode.Children[0]).
+			Execute(document, styles)
+		if err != nil {
+			return err
+		}
+
+		// Trigger a recursive mount for all its remaining children
+		for _, child := range typedNode.Children[1:] {
+			if child == nil {
+				continue
+			}
+
+			childStyles := RecursivelyMount(p.listenerFunc, document, p.closestDOMParent, child)
+
+			for _, style := range childStyles {
+				*styles = append(*styles, style)
+			}
+		}
 	}
 
 	return nil

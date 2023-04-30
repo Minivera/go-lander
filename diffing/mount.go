@@ -30,6 +30,8 @@ func RecursivelyMount(listenerFunc func(listener events.EventListenerFunc, this 
 		context.RegisterComponentContext("mount", typedNode)
 		context.RegisterComponentContext("render", typedNode)
 		children = []nodes.Node{typedNode.Render(context.CurrentContext)}
+	case *nodes.FragmentNode:
+		children = typedNode.Children
 	case *nodes.HTMLNode:
 		add = true
 		domElement = nodes.NewHTMLElement(document, typedNode)

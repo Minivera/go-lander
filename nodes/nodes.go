@@ -8,10 +8,11 @@ type Children = []Child
 type NodeType uint8
 
 const (
-	NoneType     NodeType = 0
-	HTMLNodeType NodeType = 1
-	TextNodeType NodeType = 2
-	FuncNodeType NodeType = 3
+	NoneType NodeType = iota
+	HTMLNodeType
+	TextNodeType
+	FuncNodeType
+	FragmentNodeType
 )
 
 type Node interface {
