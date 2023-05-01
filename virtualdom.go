@@ -14,6 +14,7 @@ import (
 	"github.com/minivera/go-lander/context"
 	"github.com/minivera/go-lander/diffing"
 	"github.com/minivera/go-lander/events"
+	"github.com/minivera/go-lander/internal"
 	"github.com/minivera/go-lander/nodes"
 )
 
@@ -180,7 +181,7 @@ func (e *DomEnvironment) printTree(currentNode nodes.Node, layers int) {
 		prefix += "|--"
 	}
 
-	fmt.Printf("%s Node %p %T (%v)\n", prefix, currentNode, currentNode, currentNode)
+	internal.Debugf("%s Node %p %T (%v)\n", prefix, currentNode, currentNode, currentNode)
 
 	var children nodes.Children
 	switch typedNode := currentNode.(type) {

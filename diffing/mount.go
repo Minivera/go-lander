@@ -1,11 +1,11 @@
 package diffing
 
 import (
-	"fmt"
 	"syscall/js"
 
 	"github.com/minivera/go-lander/context"
 	"github.com/minivera/go-lander/events"
+	"github.com/minivera/go-lander/internal"
 	"github.com/minivera/go-lander/nodes"
 )
 
@@ -21,7 +21,7 @@ func RecursivelyMount(listenerFunc func(listener events.EventListenerFunc, this 
 	var styles []string
 	var children []nodes.Node
 
-	fmt.Printf("Mounting %T node, %v\n", currentNode, currentNode)
+	internal.Debugf("Mounting %T node, %v\n", currentNode, currentNode)
 	switch typedNode := currentNode.(type) {
 	case *nodes.FuncNode:
 		// If the current node is a func node, we want to render it and keep going

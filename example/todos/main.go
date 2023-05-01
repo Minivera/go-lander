@@ -121,23 +121,24 @@ func (a *todosApp) render(_ context.Context, _ nodes.Props, _ nodes.Children) no
 	todos := make(nodes.Children, len(a.todos))
 
 	for i, todo := range a.todos {
+		localTodo := todo
 		todos[i] = lander.Html("li", nodes.Attributes{}, nodes.Children{
 			lander.Html("div", nodes.Attributes{}, nodes.Children{
 				lander.Html("input", nodes.Attributes{
 					"type":    "checkbox",
-					"checked": todo.completed,
+					"checked": localTodo.completed,
 					"change": func(*events.DOMEvent) error {
-						a.updateTodo(todo.id, !todo.completed)
+						a.updateTodo(localTodo.id, !localTodo.completed)
 						return a.env.Update()
 					},
 				}, nodes.Children{}),
 				lander.Html("strong", nodes.Attributes{}, nodes.Children{
-					lander.Text(todo.name),
+					lander.Text(localTodo.name),
 				}),
 			}).Style("display: inline-flex; align-items: center; padding-right: 1rem;"),
 			lander.Html("button", nodes.Attributes{
 				"click": func(*events.DOMEvent) error {
-					a.deleteTodo(todo.id)
+					a.deleteTodo(localTodo.id)
 					return a.env.Update()
 				},
 			}, nodes.Children{

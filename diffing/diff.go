@@ -7,22 +7,9 @@ import (
 
 	"github.com/minivera/go-lander/context"
 	"github.com/minivera/go-lander/events"
+	"github.com/minivera/go-lander/internal"
 	"github.com/minivera/go-lander/nodes"
 )
-
-/*
-FuncNode level 0, 0
-|- HTMLNode level 1, 0
-|- |- FragmentNode Passthrough
-|- |- |- HTMLNode level 2, 0
-|- |- |- |- TextNode level 3, 0
-|- |- |- HTMLNode level 2, 1
-|- |- |- |- TextNode level 3, 0
-|- |- |- HTMLNode level 2, 2
-|- |- TextNode level 2, 1
-
-
-*/
 
 // GeneratePatches generate a set of patches to update the real DOM and the virtual dom passed as the
 // old node. It will run recursively on all nodes of the tree and return the patches in a slice to be
@@ -38,25 +25,25 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 	var newChildren []nodes.Node
 	isDOMNode := false
 
-	fmt.Printf("Diffing %T, %v against %T, %v\n", old, old, new, new)
+	internal.Debugf("Diffing %T, %v against %T, %v\n", old, old, new, new)
 	if new == nil {
 		if typedNode, ok := old.(*nodes.FuncNode); ok {
 			// If we hit a function as the old node when there's a need to remove, then we
 			// should do nothing and trigger an unmount on the old node, then keep going so we
 			// can remove the HTML nodes.
-			fmt.Println("New was missing and old node is a component, triggering a unmount")
+			internal.Debugln("New was missing and old node is a component, triggering a unmount")
 			context.RegisterComponent(typedNode)
 			context.UnregisterAllComponentContexts(typedNode)
 			context.RegisterComponentContext("unmount", typedNode)
 		}
 
-		fmt.Println("New was missing, removing")
+		internal.Debugln("New was missing, removing")
 		// If the new is missing, then we should remove unneeded children
 		patches = append(patches, newPatchRemove(prev, prevDOMNode, old))
 
 		return patches, currentStyles, nil
 	} else if old == nil {
-		fmt.Println("Old was missing, inserting")
+		internal.Debugln("Old was missing, inserting")
 		// If the old node is missing, then we are mounting for the first time
 		if indexInPrevDOMNode != nil {
 			patches = append(patches, newPatchInsertAt(listenerFunc, prevDOMNode, *indexInPrevDOMNode, prev, new))
@@ -78,7 +65,7 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 
 		return patches, currentStyles, nil
 	} else if reflect.TypeOf(old) != reflect.TypeOf(new) {
-		fmt.Println("Types were different, replacing")
+		internal.Debugln("Types were different, replacing")
 		// If both nodes exist, but they are of a different type, replace and patch
 		patches = append(patches, newPatchReplace(listenerFunc, prevDOMNode, prev, old, new))
 
@@ -87,7 +74,7 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 			// If we hit a function node as the old when there's a need to replace, then we should
 			// trigger an unmount on the old node and not render. We don't care about the old node here
 			// as we should never rerender it.
-			fmt.Println("Types were different and old node is a component, keep going on the new children")
+			internal.Debugln("Types were different and old node is a component, keep going on the new children")
 			context.UnregisterAllComponentContexts(typedNode)
 			context.RegisterComponentContext("unmount", typedNode)
 		case *nodes.HTMLNode:
@@ -103,7 +90,7 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 
 		return patches, currentStyles, nil
 	} else if old.Diff(new) {
-		fmt.Println("Nodes were different, updating")
+		internal.Debugln("Nodes were different, updating")
 		// If both nodes have the same type, but have differences
 		switch typedNode := old.(type) {
 		case *nodes.FuncNode:
@@ -147,7 +134,7 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 			return nil, []string{}, fmt.Errorf("somehow got neither a text, nor a HTML node during patching, cannot process node")
 		}
 	} else {
-		fmt.Println("No changes")
+		internal.Debugln("No changes")
 		switch oldConverted := old.(type) {
 		case *nodes.FuncNode:
 			// For function nodes, use the previous render result as the old

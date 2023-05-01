@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"github.com/minivera/go-lander/context"
+	"github.com/minivera/go-lander/internal"
 )
 
 func useInternalMemo[T any](ctx context.Context, defaultValue T,
@@ -14,7 +15,7 @@ func useInternalMemo[T any](ctx context.Context, defaultValue T,
 		panic("hooks were used outside of a hook provider, make sure to wrap your entire app in a `lander.Component(hooks.Provider)`")
 	}
 
-	fmt.Printf("attempting to setup state for %v\n", defaultValue)
+	internal.Debugf("attempting to setup state for %v\n", defaultValue)
 	activeState, activeStateOk := ctx.GetValue("lander_active_state").(*stateChain)
 	states, statesOk := ctx.GetValue("lander_states").(*stateChain)
 	changed := false
@@ -28,15 +29,15 @@ func useInternalMemo[T any](ctx context.Context, defaultValue T,
 			next:    nil,
 		}
 		ctx.SetValue("lander_states", states)
-		fmt.Printf("states were empty, creating new empty states to is %T, %v\n", states, states)
+		internal.Debugf("states were empty, creating new empty states to is %T, %v\n", states, states)
 		activeState = states
 		activeStateOk = true
 	}
 
-	fmt.Printf("fetched active state is %T, %v\n", activeState, activeState)
+	internal.Debugf("fetched active state is %T, %v\n", activeState, activeState)
 	var realActiveState *stateChain
 	if activeState == nil || !activeStateOk {
-		fmt.Printf("Creating new active state %v\n", stateChain{
+		internal.Debugf("Creating new active state %v\n", stateChain{
 			mounted: false,
 			state:   defaultValue,
 			deps:    deps,
@@ -56,11 +57,11 @@ func useInternalMemo[T any](ctx context.Context, defaultValue T,
 		}
 		currentState.next = realActiveState
 	} else {
-		fmt.Printf("Using existing active state %v, %t\n", activeState, activeState == nil)
+		internal.Debugf("Using existing active state %v, %t\n", activeState, activeState == nil)
 		realActiveState = activeState
 	}
 
-	fmt.Printf("current active state is %T, %v\n", realActiveState, realActiveState)
+	internal.Debugf("current active state is %T, %v\n", realActiveState, realActiveState)
 	if realActiveState.mounted && !reflect.DeepEqual(realActiveState.deps, deps) {
 		changed = true
 		realActiveState.state = defaultValue
@@ -89,7 +90,7 @@ func useInternalMemo[T any](ctx context.Context, defaultValue T,
 		return nil
 	})
 
-	fmt.Printf("setting active state to %T, %v\n", realActiveState.next, realActiveState.next)
+	internal.Debugf("setting active state to %T, %v\n", realActiveState.next, realActiveState.next)
 	ctx.SetValue("lander_active_state", realActiveState.next)
 	return changed, realActiveState.state.(T), func(setter func(val T) T) error {
 			realActiveState.state = setter(realActiveState.state.(T))

@@ -2,6 +2,8 @@ package context
 
 import (
 	"fmt"
+
+	"github.com/minivera/go-lander/internal"
 )
 
 var CurrentContext Context
@@ -87,14 +89,14 @@ func RegisterComponent(component interface{}) {
 }
 
 func RegisterComponentContext(contextType string, component interface{}) {
-	fmt.Printf("Registering context type %s for component %T, %v\n", contextType, component, component)
+	internal.Debugf("Registering context type %s for component %T, %v\n", contextType, component, component)
 	converted := CurrentContext.(*baseContext)
 	converted.contextPerComponent[component] = append(converted.contextPerComponent[component], contextType)
 	converted.currentComponent = component
 }
 
 func UnregisterAllComponentContexts(component interface{}) {
-	fmt.Printf("Removing all context types for component %T, %v\n", component, component)
+	internal.Debugf("Removing all context types for component %T, %v\n", component, component)
 	converted := CurrentContext.(*baseContext)
 	converted.contextPerComponent[component] = []string{}
 }
@@ -112,7 +114,7 @@ func (c *baseContext) OnUnmount(listener func() error) {
 }
 
 func (c *baseContext) registerListener(contextType string, listener func() error) {
-	fmt.Printf("Registering event type %s for component %T (%p) %v\n", contextType, c.currentComponent, c.currentComponent, c.currentComponent)
+	internal.Debugf("Registering event type %s for component %T (%p) %v\n", contextType, c.currentComponent, c.currentComponent, c.currentComponent)
 	if _, ok := c.componentEvents[c.currentComponent]; !ok {
 		c.componentEvents[c.currentComponent] = map[string]func() error{}
 	}
@@ -121,32 +123,32 @@ func (c *baseContext) registerListener(contextType string, listener func() error
 }
 
 func (c *baseContext) triggerEvents() error {
-	fmt.Printf("Trying to trigger events %v\n", c.componentEvents)
+	internal.Debugf("Trying to trigger events %v\n", c.componentEvents)
 	for component, contextEvents := range c.contextPerComponent {
-		fmt.Printf("Trying to trigger events for component %T, %v\n", component, component)
-		fmt.Printf("Events are %v\n", contextEvents)
+		internal.Debugf("Trying to trigger events for component %T, %v\n", component, component)
+		internal.Debugf("Events are %v\n", contextEvents)
 
 		// Ignore any context listeners for contexts that are not set on this particular component
 		for _, name := range contextEvents {
 			if name == "unmount" {
-				fmt.Printf("Searching for unmount listener of component (%p) %T in previous context\n", component, component)
+				internal.Debugf("Searching for unmount listener of component (%p) %T in previous context\n", component, component)
 				// If the context is to unmount, then find the listener in the previous context instead
 				if c.previousContext == nil {
 					continue
 				}
 
 				for component, events := range c.previousContext.componentEvents {
-					fmt.Printf("Previous context has component %T (%p) and events %v\n", component, component, events)
+					internal.Debugf("Previous context has component %T (%p) and events %v\n", component, component, events)
 				}
 
 				listener, ok := c.previousContext.componentEvents[component]["unmount"]
 				if !ok {
-					fmt.Printf("Listener for unmount was not found in previous context with component %T\n", component)
+					internal.Debugf("Listener for unmount was not found in previous context with component %T\n", component)
 					// skip if the unmounted component doesn't trigger unmount
 					continue
 				}
 
-				fmt.Printf("Executing unmount with component %T\n", component)
+				internal.Debugf("Executing unmount with component %T\n", component)
 				err := listener()
 				if err != nil {
 					return fmt.Errorf("error in unmount listener for component. %w", err)
@@ -158,18 +160,18 @@ func (c *baseContext) triggerEvents() error {
 			// Don't continue with this component if it was never registered
 			events, ok := c.componentEvents[component]
 			if !ok {
-				fmt.Printf("Component %T was never registered\n", component)
+				internal.Debugf("Component %T was never registered\n", component)
 				continue
 			}
 
-			fmt.Printf("Testing for %s with component %T\n", name, component)
+			internal.Debugf("Testing for %s with component %T\n", name, component)
 			listener, found := events[name]
 			if !found {
-				fmt.Printf("%s with component %T was never registered\n", name, component)
+				internal.Debugf("%s with component %T was never registered\n", name, component)
 				continue
 			}
 
-			fmt.Printf("Executing %s with component %T\n", name, component)
+			internal.Debugf("Executing %s with component %T\n", name, component)
 			err := listener()
 			if err != nil {
 				return fmt.Errorf("error in %s listener for component. %w", name, err)

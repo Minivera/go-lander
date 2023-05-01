@@ -1,9 +1,8 @@
 package state
 
 import (
-	"fmt"
-
 	"github.com/minivera/go-lander/context"
+	"github.com/minivera/go-lander/internal"
 	"github.com/minivera/go-lander/nodes"
 )
 
@@ -32,6 +31,6 @@ func (s *Store[T]) Consumer(_ context.Context, props nodes.Props, children nodes
 
 func (s *Store[T]) SetState(ctx context.Context, setter func(value T) T) error {
 	s.state = setter(s.state)
-	fmt.Printf("Setting state to %v\n", s.state)
+	internal.Debugf("Setting state to %v\n", s.state)
 	return ctx.Update()
 }

@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"syscall/js"
 
-	"github.com/minivera/go-lander/events"
-
 	"github.com/minivera/go-lander/context"
+	"github.com/minivera/go-lander/events"
+	"github.com/minivera/go-lander/internal"
 	"github.com/minivera/go-lander/nodes"
 )
 
@@ -83,7 +83,7 @@ func (r *Router) Route(ctx context.Context, props nodes.Props, children nodes.Ch
 		panic("routing components were used outside of a router provider, make sure to wrap your entire app in a `lander.Component(router.Provider)`")
 	}
 	pathname := ctx.GetValue("lander_routing_url").(string)
-	fmt.Printf("Current pathname is %s\n", pathname)
+	internal.Debugf("Current pathname is %s\n", pathname)
 
 	route, ok := props["route"].(string)
 	if !ok {
@@ -101,7 +101,7 @@ func (r *Router) Route(ctx context.Context, props nodes.Props, children nodes.Ch
 	}
 
 	if !regex.MatchString(pathname) {
-		fmt.Printf("%s did not match %s\n", pathname, route)
+		internal.Debugf("%s did not match %s\n", pathname, route)
 		return nil
 	}
 

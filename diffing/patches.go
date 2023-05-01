@@ -3,13 +3,12 @@
 package diffing
 
 import (
-	"fmt"
 	"strings"
 	"syscall/js"
 
 	"github.com/minivera/go-lander/context"
-
 	"github.com/minivera/go-lander/events"
+	"github.com/minivera/go-lander/internal"
 	"github.com/minivera/go-lander/nodes"
 )
 
@@ -32,7 +31,7 @@ func newPatchText(parentNode nodes.Node, old *nodes.TextNode, text string) Patch
 }
 
 func (p *patchText) Execute(_ js.Value, _ *[]string) error {
-	fmt.Printf("Executing patch Text on %T, %v\n", p.oldNode, p.oldNode)
+	internal.Debugf("Executing patch Text on %T, %v\n", p.oldNode, p.oldNode)
 	p.oldNode.Update(p.newText)
 
 	return nil
@@ -56,7 +55,7 @@ func newPatchHTML(
 }
 
 func (p *patchHTML) Execute(_ js.Value, _ *[]string) error {
-	fmt.Printf("Executing patch HTML on %T, %v\n", p.oldNode, p.oldNode)
+	internal.Debugf("Executing patch HTML on %T, %v\n", p.oldNode, p.oldNode)
 	newAttributes := make(map[string]interface{}, len(p.newNode.Attributes)+len(p.newNode.EventListeners)+2)
 
 	// Run only on the properties since they retain their original type prior to extraction
@@ -119,7 +118,7 @@ func newPatchListeners(
 }
 
 func (p *patchListeners) Execute(_ js.Value, _ *[]string) error {
-	fmt.Printf("Executing patch listeners on %T, %v\n", p.oldNode, p.oldNode)
+	internal.Debugf("Executing patch listeners on %T, %v\n", p.oldNode, p.oldNode)
 	// Remove any event listeners to avoid old closures leaking into them
 	for event, listener := range p.oldNode.EventListeners {
 		p.oldNode.DomNode.Call("removeEventListener", event, listener.Wrapper)
@@ -176,8 +175,8 @@ func newPatchInsertAt(
 }
 
 func (p *patchInsert) Execute(document js.Value, styles *[]string) error {
-	fmt.Printf("Executing patch insert on %T, %v\n", p.newNode, p.newNode)
-	fmt.Printf("Parent is %T, %v\n", p.parent, p.parent)
+	internal.Debugf("Executing patch insert on %T, %v\n", p.newNode, p.newNode)
+	internal.Debugf("Parent is %T, %v\n", p.parent, p.parent)
 	switch parent := p.parent.(type) {
 	case *nodes.FuncNode:
 		parent.RenderResult = p.newNode
@@ -279,7 +278,7 @@ func newPatchRemove(parent nodes.Node, closestDOMParent js.Value, old nodes.Node
 }
 
 func (p *patchRemove) Execute(document js.Value, styles *[]string) error {
-	fmt.Printf("Executing patch remove on %T, %v\n", p.oldNode, p.oldNode)
+	internal.Debugf("Executing patch remove on %T, %v\n", p.oldNode, p.oldNode)
 	switch typedNode := p.parent.(type) {
 	case *nodes.FuncNode:
 		typedNode.RenderResult = nil
@@ -345,7 +344,7 @@ func newPatchReplace(
 }
 
 func (p *patchReplace) Execute(document js.Value, styles *[]string) error {
-	fmt.Printf("Executing patch replace on %T, %v\n", p.oldNode, p.oldNode)
+	internal.Debugf("Executing patch replace on %T, %v\n", p.oldNode, p.oldNode)
 	switch parent := p.parent.(type) {
 	case *nodes.FuncNode:
 		parent.RenderResult = p.newNode
