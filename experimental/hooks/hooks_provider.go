@@ -13,6 +13,9 @@ type stateChain struct {
 	next *stateChain
 }
 
+// Provider provides teh context for hooks to work properly. This Provider must be added as the first
+// component of the app. It takes care of setting up and tracking the states on every render. Returns
+// a fragment node, which allows passing more than one child.
 func Provider(context context.Context, _ nodes.Props, children nodes.Children) nodes.Child {
 	if !context.HasValue("lander_states") {
 		context.SetValue("lander_states", nil)

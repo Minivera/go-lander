@@ -12,6 +12,15 @@ import (
 	"github.com/minivera/go-lander/nodes"
 )
 
+// Patch is an interface that describes a general patch to update the virtual and real DOM. A patch
+// should make sure the virtual DOM is always valid and sync it to the DOM with eventual consistency.
+// A single patch may trigger other patches if necessary as part of its logic, leading to an eventual
+// DOM consistency.
+//
+// The function takes a document as its first parameter, this document should allow creating DOM nodes.
+// It also takes a point to a slice of strings, which it will mutate as part of the execution of this
+// function. This slice contains the style of the encountered DOM elements if there is a need to generate
+// and insert new ones. These styles should be added to the head for the DOM elements to be properly styled.
 type Patch interface {
 	Execute(js.Value, *[]string) error
 }
@@ -30,6 +39,8 @@ func newPatchText(parentNode nodes.Node, old *nodes.TextNode, text string) Patch
 	}
 }
 
+// Execute executes the logic to patch a text node. This will trigger a node update, which
+// handles updating the DOM.
 func (p *patchText) Execute(_ js.Value, _ *[]string) error {
 	internal.Debugf("Executing patch Text on %T, %v\n", p.oldNode, p.oldNode)
 	p.oldNode.Update(p.newText)
@@ -54,6 +65,10 @@ func newPatchHTML(
 	}
 }
 
+// Execute executes the logic to patch an HTML node. This will trigger a node update, which
+// handles updating the DOM. The new DOM attributes will be generated from the attributes saved
+// on the previous virtual DOM node. Event listeners will be released to avoid memory and closure
+// issues, then readded with the listenerFunc given to the patch.
 func (p *patchHTML) Execute(_ js.Value, _ *[]string) error {
 	internal.Debugf("Executing patch HTML on %T, %v\n", p.oldNode, p.oldNode)
 	newAttributes := make(map[string]interface{}, len(p.newNode.Attributes)+len(p.newNode.EventListeners)+2)
@@ -117,6 +132,9 @@ func newPatchListeners(
 	}
 }
 
+// Execute executes the logic to patch the listeners of an HTML node. This is a utility patch
+// that should run on all HTML nodes that make sure event listeners are always up-to-date and no
+// closure issue can happen due to outdated variable states.
 func (p *patchListeners) Execute(_ js.Value, _ *[]string) error {
 	internal.Debugf("Executing patch listeners on %T, %v\n", p.oldNode, p.oldNode)
 	// Remove any event listeners to avoid old closures leaking into them
@@ -174,6 +192,13 @@ func newPatchInsertAt(
 	}
 }
 
+// Execute executes the logic to insert new nodes at specific positions inside a parent. This patch
+// may be recursive and could call other patches to handles fragments or components. The patch is
+// built to handle all possible types of parents and all the children they may contain, but it makes
+// some assumptions that could lead to bugs.
+//
+// The patch is configured to handle both appending at the end of the parent and inserting at a specific
+// position using insertBefore.
 func (p *patchInsert) Execute(document js.Value, styles *[]string) error {
 	internal.Debugf("Executing patch insert on %T, %v\n", p.newNode, p.newNode)
 	internal.Debugf("Parent is %T, %v\n", p.parent, p.parent)
@@ -277,6 +302,10 @@ func newPatchRemove(parent nodes.Node, closestDOMParent js.Value, old nodes.Node
 	}
 }
 
+// Execute executes the logic to remove an existing nodes at specific positions inside a parent. This
+// patch may be recursive and could call other patches to handles fragments or components. The patch is
+// built to handle all possible types of parents and all the children they may contain, but it makes
+// some assumptions that could lead to bugs.
 func (p *patchRemove) Execute(document js.Value, styles *[]string) error {
 	internal.Debugf("Executing patch remove on %T, %v\n", p.oldNode, p.oldNode)
 	switch typedNode := p.parent.(type) {
@@ -343,6 +372,10 @@ func newPatchReplace(
 	}
 }
 
+// Execute executes the logic to replace an existing nodes at specific positions inside a parent with a
+// new node. This patch may be recursive and could call other patches to handles fragments or components.
+// The patch is built to handle all possible types of parents and all the children they may contain, but
+// it makes some assumptions that could lead to bugs.
 func (p *patchReplace) Execute(document js.Value, styles *[]string) error {
 	internal.Debugf("Executing patch replace on %T, %v\n", p.oldNode, p.oldNode)
 	switch parent := p.parent.(type) {

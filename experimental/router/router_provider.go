@@ -8,16 +8,23 @@ import (
 	"github.com/minivera/go-lander/nodes"
 )
 
+// Router contains the routing state of the application, it must be created globally in an application
+// and it used to create all the other routing components.
 type Router struct {
 	currentURL string
 
 	handleHistoryFunc js.Func
 }
 
+// NewRouter generates a valid router pointer with all properties set.
 func NewRouter() *Router {
 	return &Router{}
 }
 
+// Provider provides the context and values for the router to work properly. It must be added as one of
+// the first component of the tree and all subsequent router components or logic must happen in a descendant
+// of the provider. The provider also listens to the popstate events to update the application if the user
+// uses the back or forward buttons. Returns a fragment node, which allows passing more than one child.
 func (r *Router) Provider(ctx context.Context, _ nodes.Props, children nodes.Children) nodes.Child {
 	g := js.Global()
 	if !g.Truthy() {

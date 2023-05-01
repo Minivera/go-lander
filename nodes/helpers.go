@@ -11,6 +11,9 @@ import (
 	lEvents "github.com/minivera/go-lander/events"
 )
 
+// ExtractAttributes extracts the relevant attributes, props, and listeners for an HTML node given the
+// attributes map. This allows extracting based on types, which can then be reconciled with the DOM nodes
+// attributes and properties.
 func ExtractAttributes(attributes map[string]interface{}) (
 	map[string]string, map[string]interface{}, map[string]*lEvents.EventListener) {
 
@@ -52,6 +55,8 @@ func ExtractAttributes(attributes map[string]interface{}) (
 	return attrs, props, events
 }
 
+// NewHTMLElement creates a new HTML node and sets all its attributes, properties, and event listeners
+// on creation.
 func NewHTMLElement(document js.Value, currentElement *HTMLNode) js.Value {
 	var domElement js.Value
 	if currentElement.Namespace != "" {
@@ -82,6 +87,8 @@ var seededRand = rand.New(
 	rand.NewSource(time.Now().UnixNano()),
 )
 
+// RandomString generates a random string of the provided length from a specific charset. This is useful
+// for generating semi-random class names for HTML elements.
 func RandomString(length int) string {
 	b := make([]byte, length)
 	for i := range b {

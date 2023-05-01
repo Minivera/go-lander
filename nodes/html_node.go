@@ -8,25 +8,47 @@ import (
 	"github.com/minivera/go-lander/events"
 )
 
+// Attributes is a map of properties to assign to an element. Technically interchangeable with
+// Props or `map[string]interface{}`, this type is provided for convenience.
 type Attributes = map[string]interface{}
 
+// HTMLNode is an implementation of the Node interface which implements the logic to handle
+// and render HTML elements inside Lander.
 type HTMLNode struct {
 	baseNode
 
+	// DomNode is the real DOM node associated with this virtual node. If set, this node is
+	// mounted.
 	DomNode js.Value
 
-	ActiveClass    string
-	Namespace      string
-	DomID          string
-	Tag            string
-	Classes        []string
-	Attributes     map[string]string
-	Properties     map[string]interface{}
+	// ActiveClass is an active, random, class given to this element by the styling function.
+	ActiveClass string
+	// Namespace is th XHTML namespace of this element, if any. Will be used to create the DOM
+	// element with a namespace if needed.
+	Namespace string
+	// DomID is the ID of the element in the DOM, set as "id" on the element itself.
+	DomID string
+	// Tag is the HMTL tag of this element, such as "div" or "span".
+	Tag string
+	// Classes is a list of CSS classes to assign to this element.
+	Classes []string
+	// Attributes is a map of string only attributes to assign using setAttribute on the DOM element
+	// properties should be stored in Properties.
+	Attributes map[string]string
+	// Properties is a map of any type to assign on the DOM element directly as object properties.
+	// attributes should be stored in Attributes.
+	Properties map[string]interface{}
+	// EventListeners is a map of event listeners to their events. Does not expect the "on" prefix.
+	// events listeners are added directly on the DOM element.
 	EventListeners map[string]*events.EventListener
-	Children       []Node
-	Styles         []string
+	// Children is a slice of the children provided to this element.
+	Children []Node
+	// A slice of the styles assigned to this element as CSS strings. Not minified, they are
+	// valid CSS definitions.
+	Styles []string
 }
 
+// NewHTMLNode creates a new HTML node with the provided information.
 func NewHTMLNode(tag string, attributes Attributes, children []Node) *HTMLNode {
 	attrs, props, listeners := ExtractAttributes(attributes)
 
@@ -52,6 +74,9 @@ func NewHTMLNode(tag string, attributes Attributes, children []Node) *HTMLNode {
 	}
 }
 
+// Update updates this HTML node with the provided attributes map. The map will be extracted to
+// attributes, props, and event listeners using ExtractAttributes, then applied to the virtual
+// DOM node and the underlying real DOM node.
 func (n *HTMLNode) Update(newAttributes map[string]interface{}) {
 	oldAttributes := n.Attributes
 	oldProps := n.Properties
@@ -107,6 +132,8 @@ func (n *HTMLNode) Update(newAttributes map[string]interface{}) {
 	}
 }
 
+// Mount sets the real DOM node on this HTML node, the applies the attributes, props, and event listeners
+// on the underlying real DOM node.
 func (n *HTMLNode) Mount(domNode js.Value) {
 	n.DomNode = domNode
 
@@ -218,6 +245,9 @@ func (n *HTMLNode) Type() NodeType {
 	return HTMLNodeType
 }
 
+// InsertChildren inserts a children at the provided position in the element's children.
+// Returns an error if the children cannot be inserted. Inserts at the end if provided -1
+// as the position.
 func (n *HTMLNode) InsertChildren(node Node, position int) error {
 	// Insert at the end on a -1
 	if position < 0 {
@@ -241,6 +271,8 @@ func (n *HTMLNode) InsertChildren(node Node, position int) error {
 	return nil
 }
 
+// ReplaceChildren replaces the provided node with the new node in the element's children.
+// Returns an error if the children cannot be replaced.
 func (n *HTMLNode) ReplaceChildren(old, new Node) error {
 	for index, child := range n.Children {
 		if child == old {
@@ -251,6 +283,8 @@ func (n *HTMLNode) ReplaceChildren(old, new Node) error {
 	return nil
 }
 
+// RemoveChildren removed the provided children, if found, from the elements's children.
+// Returns an error if the children cannot be inserted.
 func (n *HTMLNode) RemoveChildren(node Node) error {
 	newChildren := make([]Node, len(n.Children)-1)
 	index := 0

@@ -9,6 +9,15 @@ import (
 	"github.com/minivera/go-lander/nodes"
 )
 
+// RecursivelyMount recursively mounts the given tree from currentNode into the document provided. This does
+// not mutate the tree, it only mounts it to the document. This will also render and register the mount
+// context for components it encounters.
+//
+// The listenerFunc argument is a function for JS event listeners. All listeners should use the same
+// listener function to lock the tree when an event is being handled.
+//
+// The function returns a slice of style strings from the encountered DOM nodes. This slice should be added
+// in a style tag in the page's head for elements to be properly styled.
 func RecursivelyMount(listenerFunc func(listener events.EventListenerFunc, this js.Value, args []js.Value) interface{},
 	document js.Value, lastElement js.Value, currentNode nodes.Node) []string {
 

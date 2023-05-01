@@ -11,10 +11,23 @@ import (
 	"github.com/minivera/go-lander/nodes"
 )
 
-// GeneratePatches generate a set of patches to update the real DOM and the virtual dom passed as the
+// GeneratePatches generate a set of patches to update the real DOM and the virtual DOM passed as the
 // old node. It will run recursively on all nodes of the tree and return the patches in a slice to be
-// executed sequentially. GeneratePatches expects the tree it is given to be made exclusively of HTML
-// nodes (HTML and text), and no components.
+// executed sequentially. GeneratePatches will handle all type of nodes, the tree it is given as the
+// oldNode should be the complete tree, components and fragments included.
+//
+// The listenerFunc argument is a function for JS event listeners. All listeners should use the same
+// listener function to lock the tree when an event is being handled.
+//
+// The prev and prevDOMNode arguments take the previous valid virtual DOM node and the previous valid
+// real DOM node respectively. This ensures that patches can run on the virtual and real parents properly.
+//
+// indexInPrevDOMNode is a pointer to the numerical index of the current tree in the last seen DOM node,
+// stored in prevDOMNode. The pointer is used to update it recursively without the need to add more return
+// values. This is necessary for insert patches to insert in the right location. Pass nil to append.
+//
+// The function returns a slice of patches, a slice of styles detected from the various children, and a
+// potential error. The slice of styles should be appended to the head for HTML nodes to be properly styled.
 func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this js.Value, args []js.Value) interface{},
 	prev nodes.Node, prevDOMNode js.Value, indexInPrevDOMNode *int, old, new nodes.Node) ([]Patch, []string, error) {
 

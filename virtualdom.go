@@ -24,6 +24,9 @@ func init() {
 	document = js.Global().Get("document")
 }
 
+// DomEnvironment is the lander DOM environment that stores the necessary information to allow mounting
+// and rendering a lander app. Keep this environment in the main method or in global memory to avoid any
+// memory loss.
 type DomEnvironment struct {
 	sync.RWMutex
 
@@ -34,6 +37,12 @@ type DomEnvironment struct {
 	prevContext context.Context
 }
 
+// RenderInto renders the provided root component node into the given DOM root. The root selector must
+// lead to a valid node, otherwise the mounting will error. The tree is only mounted in this method,
+// no diffing will happen. Returns the mounted DOM environment, which can be used to trigger updates.
+//
+// This function is thread safe and will not allow any updates while the first mount is in progress. Event
+// listeners or effects triggered during the mount process will have to wait.
 func RenderInto(rootNode *nodes.FuncNode, root string) (*DomEnvironment, error) {
 	env := &DomEnvironment{
 		root: root,
@@ -51,6 +60,13 @@ func RenderInto(rootNode *nodes.FuncNode, root string) (*DomEnvironment, error) 
 	return env, nil
 }
 
+// Update triggers the diffing process and updates the virtual and real DOM tree. The app provided to
+// RenderInto will rerender fully and be diffed against the previously store tree. The diffing process
+// generates a set of patches, which are executed in sequence against both the real and virtual DOM trees
+// to update the stored tree with the new changes.
+//
+// This function is NOT thread safe and many allow other updates while another is in progress. Trigger an
+// Update in an event listener to use the thread safe features of Lander.
 func (e *DomEnvironment) Update() error {
 	err := e.patchDom()
 	if err != nil {

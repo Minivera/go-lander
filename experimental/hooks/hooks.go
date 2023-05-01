@@ -101,7 +101,7 @@ func useInternalMemo[T any](ctx context.Context, defaultValue T,
 }
 
 // UseState hooks into the context to provide some updatable state to a component. This state can be updated
-// with the second parameter. Note that due to how Golang share's closure variables by reference, any state
+// with the second parameter. Note that due to how Golang shares closure variables by reference, any state
 // variable that is not a pointer will not be updated inside the event listeners. The third return value
 // can be used to always get the most up-to-date state value.
 func UseState[T any](ctx context.Context, defaultValue T) (T, func(func(val T) T) error, func() T) {
@@ -114,6 +114,12 @@ type effectState struct {
 	cleanup func() error
 }
 
+// UseEffect calls the effect function on mount and on every subsequent renders, provided the dependencies
+// given change. It uses `reflect.DeepEqual` internally to check if dependency changes.
+//
+// The effect must return a function and an error. This returned function is the cleanup function and will
+// be executed when the component unmount. The cleanup is not executed when the effect is executed due to
+// the dependencies changing, you must cleanup your hooks manually if you leak memory between executions.
 func UseEffect(ctx context.Context, effect func() (func() error, error), deps []interface{}) {
 	state := &effectState{
 		effect: effect,
