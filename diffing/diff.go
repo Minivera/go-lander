@@ -10,18 +10,33 @@ import (
 	"github.com/minivera/go-lander/nodes"
 )
 
+/*
+FuncNode level 0, 0
+|- HTMLNode level 1, 0
+|- |- FragmentNode Passthrough
+|- |- |- HTMLNode level 2, 0
+|- |- |- |- TextNode level 3, 0
+|- |- |- HTMLNode level 2, 1
+|- |- |- |- TextNode level 3, 0
+|- |- |- HTMLNode level 2, 2
+|- |- TextNode level 2, 1
+
+
+*/
+
 // GeneratePatches generate a set of patches to update the real DOM and the virtual dom passed as the
 // old node. It will run recursively on all nodes of the tree and return the patches in a slice to be
 // executed sequentially. GeneratePatches expects the tree it is given to be made exclusively of HTML
 // nodes (HTML and text), and no components.
 func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this js.Value, args []js.Value) interface{},
-	prev nodes.Node, prevDOMNode js.Value, old, new nodes.Node) ([]Patch, []string, error) {
+	prev nodes.Node, prevDOMNode js.Value, indexInPrevDOMNode *int, old, new nodes.Node) ([]Patch, []string, error) {
 
 	var patches []Patch
 	var currentStyles []string
 
 	var oldChildren []nodes.Node
 	var newChildren []nodes.Node
+	isDOMNode := false
 
 	fmt.Printf("Diffing %T, %v against %T, %v\n", old, old, new, new)
 	if new == nil {
@@ -43,11 +58,22 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 	} else if old == nil {
 		fmt.Println("Old was missing, inserting")
 		// If the old node is missing, then we are mounting for the first time
-		// FIXME: When inserting, we'll need the index for nil elements in the tree!
-		patches = append(patches, newPatchInsert(listenerFunc, prevDOMNode, prev, new))
+		if indexInPrevDOMNode != nil {
+			patches = append(patches, newPatchInsertAt(listenerFunc, prevDOMNode, *indexInPrevDOMNode, prev, new))
+		} else {
+			patches = append(patches, newPatchInsert(listenerFunc, prevDOMNode, prev, new))
+		}
 
-		if typedNode, ok := new.(*nodes.HTMLNode); ok {
+		switch typedNode := new.(type) {
+		case *nodes.HTMLNode:
+			if indexInPrevDOMNode != nil {
+				*indexInPrevDOMNode += 1
+			}
 			currentStyles = append(currentStyles, typedNode.Styles...)
+		case *nodes.TextNode:
+			if indexInPrevDOMNode != nil {
+				*indexInPrevDOMNode += 1
+			}
 		}
 
 		return patches, currentStyles, nil
@@ -56,17 +82,23 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 		// If both nodes exist, but they are of a different type, replace and patch
 		patches = append(patches, newPatchReplace(listenerFunc, prevDOMNode, prev, old, new))
 
-		if typedNode, ok := new.(*nodes.HTMLNode); ok {
-			currentStyles = append(currentStyles, typedNode.Styles...)
-		}
-
-		if typedNode, ok := old.(*nodes.FuncNode); ok {
+		switch typedNode := new.(type) {
+		case *nodes.FuncNode:
 			// If we hit a function node as the old when there's a need to replace, then we should
 			// trigger an unmount on the old node and not render. We don't care about the old node here
 			// as we should never rerender it.
 			fmt.Println("Types were different and old node is a component, keep going on the new children")
 			context.UnregisterAllComponentContexts(typedNode)
 			context.RegisterComponentContext("unmount", typedNode)
+		case *nodes.HTMLNode:
+			if indexInPrevDOMNode != nil {
+				*indexInPrevDOMNode += 1
+			}
+			currentStyles = append(currentStyles, typedNode.Styles...)
+		case *nodes.TextNode:
+			if indexInPrevDOMNode != nil {
+				*indexInPrevDOMNode += 1
+			}
 		}
 
 		return patches, currentStyles, nil
@@ -94,6 +126,7 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 			newConverted := new.(*nodes.FragmentNode)
 			newChildren = newConverted.Children
 		case *nodes.HTMLNode:
+			isDOMNode = true
 			newConverted := new.(*nodes.HTMLNode)
 			if typedNode.Tag != newConverted.Tag {
 				// If the tags are different, this is not a diff, this is a replace
@@ -108,6 +141,7 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 				prevDOMNode = typedNode.DomNode
 			}
 		case *nodes.TextNode:
+			isDOMNode = true
 			patches = append(patches, newPatchText(prev, typedNode, new.(*nodes.TextNode).Text))
 		default:
 			return nil, []string{}, fmt.Errorf("somehow got neither a text, nor a HTML node during patching, cannot process node")
@@ -132,6 +166,7 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 			newConverted := new.(*nodes.FragmentNode)
 			newChildren = newConverted.Children
 		case *nodes.HTMLNode:
+			isDOMNode = true
 			oldChildren = oldConverted.Children
 			currentStyles = append(currentStyles, oldConverted.Styles...)
 			patches = append(patches, newPatchListeners(listenerFunc, oldConverted))
@@ -139,6 +174,20 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 			newConverted := new.(*nodes.HTMLNode)
 			newChildren = newConverted.Children
 			prevDOMNode = oldConverted.DomNode
+		case *nodes.TextNode:
+			isDOMNode = true
+		}
+	}
+
+	// If the current node is a DOM node, then we should reset the current index to 0 and start counting.
+	// all subsequent children are not children of this node.
+	currentIndexInDomNode := indexInPrevDOMNode
+	if isDOMNode {
+		reset := 0
+		currentIndexInDomNode = &reset
+		// Also add 1 to the general index so the parent can keep counting
+		if indexInPrevDOMNode != nil {
+			*indexInPrevDOMNode += 1
 		}
 	}
 
@@ -150,7 +199,7 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 			newChild = newChildren[count]
 		}
 
-		childPatches, styles, err := GeneratePatches(listenerFunc, old, prevDOMNode, child, newChild)
+		childPatches, styles, err := GeneratePatches(listenerFunc, old, prevDOMNode, currentIndexInDomNode, child, newChild)
 		if err != nil {
 			return nil, []string{}, err
 		}
@@ -166,7 +215,7 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 	}
 
 	for _, child := range newChildren[count:] {
-		childPatches, styles, err := GeneratePatches(listenerFunc, old, prevDOMNode, nil, child)
+		childPatches, styles, err := GeneratePatches(listenerFunc, old, prevDOMNode, nil, nil, child)
 		if err != nil {
 			return nil, []string{}, err
 		}

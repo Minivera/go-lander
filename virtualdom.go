@@ -105,10 +105,12 @@ func (e *DomEnvironment) patchDom() error {
 
 	var styles []string
 	err := context.WithNewContext(e.Update, e.prevContext, func() error {
+		baseIndex := 0
 		patches, renderedStyles, err := diffing.GeneratePatches(
 			e.handleDOMEvent,
 			nil,
 			rootElem,
+			&baseIndex,
 			e.tree,
 			e.tree.Clone(),
 		)

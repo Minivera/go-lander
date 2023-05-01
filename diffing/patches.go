@@ -138,9 +138,10 @@ func (p *patchListeners) Execute(_ js.Value, _ *[]string) error {
 }
 
 type patchInsert struct {
-	listenerFunc     func(listener events.EventListenerFunc, this js.Value, args []js.Value) interface{}
-	closestDOMParent js.Value
-	parent, newNode  nodes.Node
+	listenerFunc        func(listener events.EventListenerFunc, this js.Value, args []js.Value) interface{}
+	closestDOMParent    js.Value
+	positionInDOMParent int
+	parent, newNode     nodes.Node
 }
 
 func newPatchInsert(
@@ -150,10 +151,27 @@ func newPatchInsert(
 	new nodes.Node,
 ) Patch {
 	return &patchInsert{
-		listenerFunc:     listenerFunc,
-		closestDOMParent: closestDOMParent,
-		parent:           parent,
-		newNode:          new,
+		listenerFunc:        listenerFunc,
+		closestDOMParent:    closestDOMParent,
+		positionInDOMParent: -1,
+		parent:              parent,
+		newNode:             new,
+	}
+}
+
+func newPatchInsertAt(
+	listenerFunc func(listener events.EventListenerFunc, this js.Value, args []js.Value) interface{},
+	closestDOMParent js.Value,
+	positionInDOMParent int,
+	parent,
+	new nodes.Node,
+) Patch {
+	return &patchInsert{
+		listenerFunc:        listenerFunc,
+		closestDOMParent:    closestDOMParent,
+		positionInDOMParent: positionInDOMParent,
+		parent:              parent,
+		newNode:             new,
 	}
 }
 
@@ -164,85 +182,84 @@ func (p *patchInsert) Execute(document js.Value, styles *[]string) error {
 	case *nodes.FuncNode:
 		parent.RenderResult = p.newNode
 
-		// Trigger a recursive mount for its render result
-		childStyles := RecursivelyMount(p.listenerFunc, document, p.closestDOMParent, parent.RenderResult)
-
-		for _, style := range childStyles {
-			*styles = append(*styles, style)
-		}
+		return p.insertChild(document, styles, p.closestDOMParent)
 	case *nodes.FragmentNode:
 		err := parent.InsertChildren(p.newNode, -1)
 		if err != nil {
 			return err
 		}
 
-		// Trigger a recursive mount for its children
-		childStyles := RecursivelyMount(p.listenerFunc, document, p.closestDOMParent, p.newNode)
-
-		for _, style := range childStyles {
-			*styles = append(*styles, style)
-		}
+		return p.insertChild(document, styles, p.closestDOMParent)
 	case *nodes.HTMLNode:
 		err := parent.InsertChildren(p.newNode, -1)
 		if err != nil {
 			return err
 		}
 
-		var domElement js.Value
-		toAdd := false
-		switch typedNode := p.newNode.(type) {
-		case *nodes.HTMLNode:
-			toAdd = true
-			domElement = nodes.NewHTMLElement(document, typedNode)
-			typedNode.Mount(domElement)
+		return p.insertChild(document, styles, parent.DomNode)
+	default:
+		// Ignore anything that's not dom related
+		return nil
+	}
+}
 
-			// Trigger a recursive mount for all its children
-			for _, child := range typedNode.Children {
-				if child == nil {
-					continue
-				}
+func (p *patchInsert) insertChild(document js.Value, styles *[]string, parentDOMNode js.Value) error {
+	var domElement js.Value
+	toAdd := false
+	switch typedNode := p.newNode.(type) {
+	case *nodes.HTMLNode:
+		toAdd = true
+		domElement = nodes.NewHTMLElement(document, typedNode)
+		typedNode.Mount(domElement)
 
-				childStyles := RecursivelyMount(p.listenerFunc, document, domElement, child)
-
-				for _, style := range childStyles {
-					*styles = append(*styles, style)
-				}
+		// Trigger a recursive mount for all its children
+		for _, child := range typedNode.Children {
+			if child == nil {
+				continue
 			}
-		case *nodes.TextNode:
-			toAdd = true
-			domElement = document.Call("createTextNode", typedNode.Text)
-			typedNode.Mount(domElement)
-		case *nodes.FuncNode:
-			context.RegisterComponent(typedNode)
-			context.RegisterComponentContext("render", typedNode)
-			context.RegisterComponentContext("mount", typedNode)
 
-			return newPatchInsert(p.listenerFunc, parent.DomNode, typedNode, typedNode.Clone().Render(context.CurrentContext)).
-				Execute(document, styles)
-		case *nodes.FragmentNode:
-			// Trigger a recursive mount for all its children
-			for _, child := range typedNode.Children {
-				if child == nil {
-					continue
-				}
+			childStyles := RecursivelyMount(p.listenerFunc, document, domElement, child)
 
-				childStyles := RecursivelyMount(p.listenerFunc, document, p.closestDOMParent, child)
-
-				for _, style := range childStyles {
-					*styles = append(*styles, style)
-				}
+			for _, style := range childStyles {
+				*styles = append(*styles, style)
 			}
-		default:
-			// Ignore anything that's not dom related
-			return nil
 		}
+	case *nodes.TextNode:
+		toAdd = true
+		domElement = document.Call("createTextNode", typedNode.Text)
+		typedNode.Mount(domElement)
+	case *nodes.FuncNode:
+		context.RegisterComponent(typedNode)
+		context.RegisterComponentContext("render", typedNode)
+		context.RegisterComponentContext("mount", typedNode)
 
-		if toAdd {
-			parent.DomNode.Call("appendChild", domElement)
+		return newPatchInsert(p.listenerFunc, parentDOMNode, typedNode, typedNode.Clone().Render(context.CurrentContext)).
+			Execute(document, styles)
+	case *nodes.FragmentNode:
+		// Trigger a recursive mount for all its children
+		for _, child := range typedNode.Children {
+			if child == nil {
+				continue
+			}
+
+			childStyles := RecursivelyMount(p.listenerFunc, document, p.closestDOMParent, child)
+
+			for _, style := range childStyles {
+				*styles = append(*styles, style)
+			}
 		}
 	default:
 		// Ignore anything that's not dom related
 		return nil
+	}
+
+	if toAdd {
+		childCount := parentDOMNode.Get("children").Length()
+		if p.positionInDOMParent >= 0 && p.positionInDOMParent < childCount {
+			parentDOMNode.Call("insertBefore", domElement, parentDOMNode.Get("children").Index(p.positionInDOMParent))
+		} else {
+			parentDOMNode.Call("appendChild", domElement)
+		}
 	}
 
 	return nil
@@ -368,11 +385,50 @@ func (p *patchReplace) Execute(document js.Value, styles *[]string) error {
 
 func (p *patchReplace) replaceChild(document js.Value, styles *[]string, parentDOMNode js.Value) error {
 	var oldDomNode js.Value
-	if converted, ok := p.oldNode.(*nodes.HTMLNode); ok {
+	// If we're replacing HTML nodes against HTML nodes, then we'll have an easy time.
+	// Simply replace directly
+	switch converted := p.oldNode.(type) {
+	case *nodes.HTMLNode:
 		oldDomNode = converted.DomNode
-	} else if converted, ok := p.oldNode.(*nodes.TextNode); ok {
+	case *nodes.TextNode:
 		oldDomNode = converted.DomNode
-	} else {
+	case *nodes.FuncNode:
+		// If we hit a func node, trigger again on this func node's render result as the old
+		// node, this should make sure we will, at some point, hit the root HTML element
+		// of this node.
+		return newPatchReplace(
+			p.listenerFunc,
+			p.closestDOMParent,
+			p.parent,
+			converted.RenderResult,
+			p.newNode,
+		).Execute(document, styles)
+	case *nodes.FragmentNode:
+		// If we hit a fragment node, things get a bit more complex. Trigger on the first children
+		// so we replace it and remove all other children. The fragment should not leak into the DOM
+		// once replaced.
+		err := newPatchReplace(
+			p.listenerFunc,
+			p.closestDOMParent,
+			p.parent,
+			converted.Children[0],
+			p.newNode,
+		).Execute(document, styles)
+		if err != nil {
+			return err
+		}
+
+		for _, child := range converted.Children[1:] {
+			err = newPatchRemove(
+				p.parent,
+				p.closestDOMParent,
+				child,
+			).Execute(document, styles)
+			if err != nil {
+				return err
+			}
+		}
+
 		return nil
 	}
 

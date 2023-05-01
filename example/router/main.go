@@ -90,7 +90,7 @@ func routingApp(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child 
 									lander.Html("span", nodes.Attributes{}, nodes.Children{
 										lander.Text(fmt.Sprintf("Subpath %s", match.Params["subroute"])),
 									}),
-								}).Style("display: flex; flex-direction: column;")
+								}).Style("display: flex; flex-direction: column; margin: 1rem; border: 1px solid black;")
 							},
 						}, nodes.Children{}),
 						lander.Html("div", nodes.Attributes{}, nodes.Children{
