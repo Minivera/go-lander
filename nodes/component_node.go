@@ -12,7 +12,7 @@ type Props = map[string]interface{}
 
 // FunctionComponent is the type definition for a function component's factory. This should be the
 // definition given to a FuncNode when its created.
-type FunctionComponent func(ctx context.Context, attributes Props, children Children) Child
+type FunctionComponent func(ctx context.Context, props Props, children Children) Child
 
 // FuncNode is an implementation of the Node interface which implements the logic to handle
 // and render components inside Lander.

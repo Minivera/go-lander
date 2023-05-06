@@ -301,6 +301,8 @@ func (n *HTMLNode) RemoveChildren(node Node) error {
 	return nil
 }
 
+// Style will assign a random CSS class name to this node and assign the passed CSS styles to it on
+// render and mount. Calling Style multiple time will override the previous styles.
 func (n *HTMLNode) Style(styling string) *HTMLNode {
 	// Generate a random CSS class name of length 10
 	className := RandomString(10)
@@ -310,7 +312,10 @@ func (n *HTMLNode) Style(styling string) *HTMLNode {
 	return n
 }
 
+// SelectorStyle uses the provided selector and creates a CSS definition using the passed CSS styles,
+// which will be added to the head on render and mounts. SelectorStyle must be called after Style as it
+// uses the active class name generated from Style to create the selector.
 func (n *HTMLNode) SelectorStyle(selector, styling string) *HTMLNode {
-	n.Styles = append(n.Styles, fmt.Sprintf(".%s%s{%s}", n.ActiveClass, selector, styling))
+	n.Styles = append(n.Styles, fmt.Sprintf(".%s %s{%s}", n.ActiveClass, selector, styling))
 	return n
 }
