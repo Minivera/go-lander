@@ -47,13 +47,15 @@ library has a few things to offer:
 [Vugu](https://github.com/vugu/vugu) is a lot more production ready and mature than GO-Lander. Vugu is a lot closer
 to Vue.js, it expects you to write `.vugu` files and your application logic in an HTML `script` tag. If you enjoy the
 Vue.js experience, Vugu is likely to be much more usable. Since GO-lander is closer to vecty in terms of its
-developer experience, we recommend looking at [its own comparison to Vugu](https://github.com/hexops/vecty#vecty-vs-vugu) to make your decision.
+developer experience, we recommend looking
+at [its own comparison to Vugu](https://github.com/hexops/vecty#vecty-vs-vugu) to make your decision.
 
 ### GO-lander and vecty
 
 [Vecty](https://github.com/hexops/vecty) is closer to how GO-lander was designed with some key differences. Vecty
 expects components to always be struct pointers with a `Render` method. GO-Lander allows you to choose how you want
-to structure your app, we store components as functions, regardless of whether they are methods of a struct or not. Vecty
+to structure your app, we store components as functions, regardless of whether they are methods of a struct or not.
+Vecty
 also differs from GO-lander in the algorithm it uses for diffing. Vecty uses a high-performance algorithm similar to
 the virtual DOM pattern where Go-lander uses a pure virtual DOM tree with a separate diffing and patching process.
 
@@ -117,20 +119,21 @@ com/golang/go/wiki/WebAssembly#getting-started). Add a `<div id="app"></div>` ta
 look like this.
 
 ```html
+
 <html>
-	<head>
-		<meta charset="utf-8"/>
-		<script src="wasm_exec.js"></script>
-		<script>
-			const go = new Go();
-			WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject).then((result) => {
-				go.run(result.instance);
-			});
-		</script>
-	</head>
-	<body>
-		<div id="app"></div>
-	</body>
+<head>
+    <meta charset="utf-8"/>
+    <script src="wasm_exec.js"></script>
+    <script>
+        const go = new Go();
+        WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject).then((result) => {
+            go.run(result.instance);
+        });
+    </script>
+</head>
+<body>
+<div id="app"></div>
+</body>
 </html>
 ```
 
@@ -211,27 +214,29 @@ To write the HTML structure of your app, use one of the three functions provided
   render properly.
 - **lander.Text(text)** will create a text node, which can be used to add text inside any node.
 
-HTML nodes take  a `nodes.Attributes` map as their attributes parameter, which can include any valid HTML attribute
+HTML nodes take a `nodes.Attributes` map as their attributes parameter, which can include any valid HTML attribute
 or property for the element. GO-lander will extract the attributes and assign them using the following rules:
 
 ```go
 package main
 
 import (
-    "github.com/minivera/go-lander/events"
+	"github.com/minivera/go-lander/events"
 	"github.com/minivera/go-lander/nodes"
 )
 
 lander.HTML('div', nodes.Attributes{
-	"checked": true, // Will be converted to `checked=""` on the DOM element if true and omitted if false.
-	"placeholder": "some string", // Will be kept as a string and assigned on the DOM element.
-	"value": -1, // Will be converted to as string and assigned on the DOM element.
-	"click": func(event *events.DOMEvent) error {} // Will be assigned using `addEventListener` on the DOM element.
+"checked": true,              // Will be converted to `checked=""` on the DOM element if true and omitted if false.
+"placeholder": "some string", // Will be kept as a string and assigned on the DOM element.
+"value": -1, // Will be converted to as string and assigned on the DOM element.
+"click": func (event *events.DOMEvent) error {} // Will be assigned using `addEventListener` on the DOM element.
 }, nodes.Children{});
 ```
 
 Any other type is ignored. If an attribute has an associated property on the DOM node (such as `value`), it will
-also be set as a property. See the [content vs. IDL attributes](https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes#content_versus_idl_attributes)  reference for more details.
+also be set as a property. See
+the [content vs. IDL attributes](https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes#content_versus_idl_attributes)
+reference for more details.
 
 Event listeners must be defined as either a function following the type `nodes.EventListenerFunc` or as a function
 with the exact signature `func(event *events.DOMEvent) error`. Event listeners are assigned with their HTML name,
@@ -256,12 +261,12 @@ option selector, for example:
 
 ```go
 lander.
-	HTML('div', nodes.Attributes{}, nodes.Children{
+    HTML('div', nodes.Attributes{}, nodes.Children{
         lander.HTML('input', nodes.Attributes{}, nodes.Children{}).
     }).
     // Will generate a random CSS class and create this CSS style in the head
-	// .classname { color: red; margin: 10px }
-	Style("color: red; margin: 10px").
+    // .classname { color: red; margin: 10px }
+    Style("color: red; margin: 10px").
     // Will use the previously generated CSS class and create this CSS style in the head
     // .classname input { color: red; margin: 10px }
     SelectorStyle("input", "width: 80%")
@@ -275,7 +280,7 @@ given specific inputs, returns a single lander node.
 Every component's signature must match the signature of `nodes.FunctionComponent`, namely:
 
 ```go
-type FunctionComponent func(ctx context.Context, props nodes.Props, children nodes.Children) nodes.Child
+type FunctionComponent func (ctx context.Context, props nodes.Props, children nodes.Children) nodes.Child
 ```
 
 The `context.Context` is covered in a later section. The component's `Props` are, like HTML attributes, a map of
@@ -300,7 +305,7 @@ import (
 
 func helloWorld(_ context.Context, props nodes.Props, children nodes.Children) nodes.Child {
 	message := props["message"].(string) // Lander does not provide any prop type safety for now
-	
+
 	return lander.Html("h1", nodes.Attributes{}, nodes.Children{
 		lander.Text(message),
 		children[0],
@@ -313,9 +318,9 @@ func main() {
 	_, err := lander.RenderInto(
 		lander.Component(helloWorld, nodes.Props{
 			"message": "Hello, World!"
-        }, nodes.Children{
+		}, nodes.Children{
 			lander.Text("From the lander README"),
-        }), "#app")
+		}), "#app")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -361,7 +366,7 @@ import (
 
 func helloWorld(_ context.Context, props nodes.Props, children nodes.Children) nodes.Child {
 	message := props["message"].(string) // Lander does not provide any prop type safety for now
-	
+
 	return lander.Html("h1", nodes.Attributes{}, nodes.Children{
 		lander.Text(message),
 		// But now the fragment will take care of the children
@@ -375,10 +380,10 @@ func main() {
 	_, err := lander.RenderInto(
 		lander.Component(helloWorld, nodes.Props{
 			"message": "Hello, World!"
-        }, nodes.Children{
+		}, nodes.Children{
 			lander.Text("From the lander README"),
 			lander.Text("This node would previously have been ignored!"),
-        }), "#app")
+		}), "#app")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -516,14 +521,14 @@ func (a *app) render(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.C
 		lander.Component(a.loginForm.render, nodes.Props{
 			"onSubmit": func(username, password string) error {
 				// Do something
-				
+
 				// Reset the form's state
 				a.loginForm = &loginForm{
 					env: a.env,
-                }
+				}
 				return f.env.Update()
 			},
-        }, nodes.Children{})
+		}, nodes.Children{})
 	})
 }
 
@@ -533,7 +538,7 @@ func main() {
 	app := &app{
 		// Create our initial state for the form
 		loginForm = &loginForm{}
-    }
+	}
 
 	env, err := lander.RenderInto(
 		// Render the form's render method instead of a function component
@@ -552,7 +557,8 @@ func main() {
 ### Context
 
 Every component function takes a GO-lander context as its first parameter. This context is similar in concept to
-Golang's own [context](https://pkg.go.dev/context) and React's [context](https://react.dev/learn/passing-data-deeply-with-context).
+Golang's own [context](https://pkg.go.dev/context) and
+React's [context](https://react.dev/learn/passing-data-deeply-with-context).
 This context carries over data that can be accessed anywhere in the tree, it allows you to define global data that
 all components in the tree can consume without needing to pass it as props throughout the entire tree.
 
@@ -561,16 +567,16 @@ wanted to carry over the theme to all components, you would need to pass it as p
 
 ```go
 func FirstComponent(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
-	someTheme := createTheme()
-	
+    someTheme := createTheme()
+    
     return lander.Component(secondComponent, nodes.Props{
         "theme": someTheme
     }, nodes.Children{})
 }
 
 func SecondComponent(_ context.Context, props nodes.Props, _ nodes.Children) nodes.Child {
-	someTheme := props["theme"].(Theme)
-	
+    someTheme := props["theme"].(Theme)
+    
     return lander.Component(thirdComponent, nodes.Props{
         "theme": someTheme
     }, nodes.Children{})
@@ -586,18 +592,18 @@ application's render cycle. Let's rewrite the above example with context.
 
 ```go
 func FirstComponent(ctx context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
-	someTheme := createTheme()
-	
-	if !ctx.HasValue("theme") {
+    someTheme := createTheme()
+    
+    if !ctx.HasValue("theme") {
         ctx.SetValue("theme", theme)
     }
-	
+    
     return lander.Component(secondComponent, nodes.Props{}, nodes.Children{})
 }
 
 func SecondComponent(ctx context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
-	someTheme := ctx.GetValue("theme").(Theme)
-	
+    someTheme := ctx.GetValue("theme").(Theme)
+    
     return lander.Component(thirdComponent, nodes.Props{}, nodes.Children{})
 }
 
@@ -634,8 +640,8 @@ func ThemeProvider(ctx context.Context, _ nodes.Props, children nodes.Children) 
     someTheme := createTheme()
     
     if !ctx.HasValue("theme") {
-		// We might also want to check if the theme has changed here, for example if we provide
-		// a dark mode version.
+        // We might also want to check if the theme has changed here, for example if we provide
+        // a dark mode version.
         ctx.SetValue("theme", theme)
     }
     
@@ -706,19 +712,19 @@ Lifecycle listeners should be called directly in the render function, they will 
 
 ```go
 func app(ctx context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
-	ctx.OnMount(func() error {
-	    // do something on mount	
+    ctx.OnMount(func () error {
+    // do something on mount	
     })
-
-    ctx.OnRender(func() error {
-        // do something on render	
+    
+    ctx.OnRender(func () error {
+    // do something on render	
     })
-
-    ctx.OnUnmount(func() error {
-        // do something on unmount	
+    
+    ctx.OnUnmount(func () error {
+    // do something on unmount	
     })
-	
-	return ...
+    
+    return ...
 }
 ```
 
@@ -757,7 +763,8 @@ change or may break in unexpected ways.
 
 ### Hooks
 
-[React hooks](https://react.dev/reference/react) have changed the way we build frontend apps, and like many other frontend trying to compete in the
+[React hooks](https://react.dev/reference/react) have changed the way we build frontend apps, and like many other
+frontend trying to compete in the
 landscape dominated by React, we have also built an alternative to hooks inside GO-lander. This experiment still
 follows the core principles of GO-lander, but given the nature of the hooks api, it required some hidden magic to
 properly work.
@@ -890,7 +897,8 @@ func main() {
 ```
 
 The `hooks.UseState` hook uses a generic type to do the typecasting for you, the default value passed as its second
-parameter must match the generic type. The hook always returns three variables, always typed to the generic type you provided.
+parameter must match the generic type. The hook always returns three variables, always typed to the generic type you
+provided.
 
 - The first parameter is the current value of the state, which will be the default value on first render. Due to how
   scoping works in Go, you should not use this value in event listeners or code that is not executed in the same
@@ -951,8 +959,8 @@ any other component.
 
 ```go
 lander.Component(store.Consumer, nodes.Props{
-    "render": func(currentState appState) nodes.Child {
-        // Return some nodes based on the state
+    "render": func (currentState appState) nodes.Child {
+    // Return some nodes based on the state
     },
 }, nodes.Children{}),
 ```
