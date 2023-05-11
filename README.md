@@ -549,11 +549,372 @@ func main() {
 }
 ```
 
-### Context and listeners
+### Context
+
+Every component function takes a GO-lander context as its first parameter. This context is similar in concept to 
+Golang's own [context](https://pkg.go.dev/context) and React's [context](https://react.dev/learn/passing-data-deeply-with-context).
+This context carries over data that can be accessed anywhere in the tree, it allows you to define global data that 
+all components in the tree can consume without needing to pass it as props throughout the entire tree.
+
+As an example, consider a deeply nested series of components that you want to theme using a central theme. If you 
+wanted to carry over the theme to all components, you would need to pass it as props to all components in the tree.
+
+```go
+func FirstComponent(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
+	someTheme := createTheme()
+	
+    return lander.Component(secondComponent, nodes.Props{
+        "theme": someTheme
+    }, nodes.Children{})
+}
+
+func SecondComponent(_ context.Context, props nodes.Props, _ nodes.Children) nodes.Child {
+	someTheme := props["theme"].(Theme)
+	
+    return lander.Component(thirdComponent, nodes.Props{
+        "theme": someTheme
+    }, nodes.Children{})
+}
+
+// And so on...
+```
+
+This example might be solved by making the theme into a global struct you can import from somewhere in your app. 
+Another solution, depending on how you want to structure your application or library, is to store this component in 
+the context for all to access. It works similarly to the global struct alternative, but it instead lives inside the 
+application's render cycle. Let's rewrite the above example with context.
+
+```go
+func FirstComponent(ctx context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
+	someTheme := createTheme()
+	
+	if !ctx.HasValue("theme") {
+        ctx.SetValue("theme", theme)
+    }
+	
+    return lander.Component(secondComponent, nodes.Props{}, nodes.Children{})
+}
+
+func SecondComponent(ctx context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
+	someTheme := ctx.GetValue("theme").(Theme)
+	
+    return lander.Component(thirdComponent, nodes.Props{}, nodes.Children{})
+}
+
+// And so on...
+```
+
+The context struct provides three methods to access and set data:
+
+- `HasValue(valueName string) bool` returns if there is a stored value under the given key in the context.
+- `GetValue(valueName string) interface{}` returns the value under the given key in the context, may panic if the 
+  value does not exist. We recommend checking with `HasValue` to validate that the value can be found. This method 
+  returns a generic interface, you will need to type-case it to your type.
+- `SetValue(valueName string, value interface{})` sets the value under the given key in the context, you can save 
+  any type in the context. This will automatically set all components for rerender in the next update.
+
+A component that provides a context value through `SetValue` is called a provider. Once a provider is added to the 
+app, every other component can now see the added context value through `SetValue` (see the limitations section below)
+. We recommend you add all providers at the root of your application to ensure that your app always has its context 
+set properly.
+
+#### Effect on component diffing
+
+By default, components only rerender during the diffing process if the node's change in a significant way, which 
+could be through props changes, children changes, or the component function changing. If the component stays the 
+same, but the context changes, then the component would not rerender with the new context value. For this reason, 
+any change to the context will set all components as "different" and trigger a rerender.
+
+We recommend that providers do not change the value they set in context on every render. Rather, check if the value 
+already exists and is already set to the value you want to be set to. This can be done with `HasValue`, like in the 
+example below.
+
+```go
+func ThemeProvider(ctx context.Context, _ nodes.Props, children nodes.Children) nodes.Child {
+    someTheme := createTheme()
+    
+    if !ctx.HasValue("theme") {
+		// We might also want to check if the theme has changed here, for example if we provide
+		// a dark mode version.
+        ctx.SetValue("theme", theme)
+    }
+    
+    return lander.Fragment(children)
+}
+```
+
+Using a global theme object instead of the context in this same example would not set the components to be 
+rerendered when the theme changes. This the main difference between using context and a global struct.
+
+#### Limitations
+
+There are a few key differences between the GO-lander context and both of its inspirations. First, GO-lander's 
+context does not provide any cancellation or timeout mechanisms like Golang's context. We have plans to support 
+render cancellation through the context to allow component to stop the diffing process from checking their result, 
+but this is not yet support. Second, GO-lander's context is a single struct that is carried over the entire tree. It 
+is only defined once at the start of the rendering process. This differs from React's own context, as described below.
+
+```
+# In React, the context is redefined only for the descendants of any component that changes the content of the context
+# for example:
+App
+| Some context provider -> Provides context value "foo"
+| | Some child component with provider -> Consumes context value "foo", Provides context value "bar"
+| | | Some descendant component -> Consumes context value "bar"
+| | Some other child component -> Consumes context value "foo"
+```
+
+When a context provider redefines the context, only the descendants of that component see the new value. Other 
+components in the tree will see the previous value in the context.
+
+GO-lander's context is global to the tree and is a pointer, thus any change to a context value in the tree will 
+affect all components, regardless of their location. The tree is visited in order, so this behaviour is predictable. 
+Taking the same example as above, but rewriting it in GO-lander, the context would behave as described below.
+
+```
+# In GO-lander, the context is a pointer that always points to the same value regardless of positions
+App
+| Some context provider -> Provides context value "foo"
+| | Some child component with provider -> Consumes context value "foo", Provides context value "bar"
+| | | Some descendant component -> Consumes context value "bar"
+| | Some other child component -> Consumes context value "bar" _different from React_
+```
+
+This limitation is important to keep in mind when you define data in the context. As soon as `SetValue` is called, 
+the data is available globally to all components in the tree, even components that have already been rendered.
+
+### Lifecycle listeners
+
+The context object also provides a set of three lifecycle listeners, which can be used to take actions when specific 
+things happen to your components. All three listener types take a `func() error` as their only parameter. This 
+function will be executed when the listening even happens. Return an error only if something critical should happen, 
+this will cause the entire app to stop.
+
+- `ctx.OnMount` listens for the first time the component has been mounted, I.E. added to the DOM tree. This will 
+  only happen once for components and is called _after_ the component has been mounted. By this point, the DOM nodes 
+  of its child have been added to the tree and can be accessed. Components are reused in the tree, which may lead to 
+  different mounts that you would expect. See example below.
+- `ctx.OnRender` listens for any full render of the component. This event happens whenever the component has changed 
+  in a meaningful way, which triggers a diff. This event happens _after_ the render has happened, meaning that any 
+  HTML nodes it returns have been updated in the DOM. This will also fire on first mount, but will not fire on unmount.
+- `ctx.OnUnmount` listens for an unmount event on the component, I.E. when it is removed from the DOM tree. This 
+  event triggers only once _after_ the component has been removed and unmount. By this point, any child it returned 
+  have been removed the DOM tree. Components are reused in the tree, which may lead to different unmounts that you 
+  would expect. See example below.
+
+Lifecycle listeners should be called directly in the render function, they will trigger based on the chosen event.
+
+```go
+func app(ctx context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
+	ctx.OnMount(func() error {
+	    // do something on mount	
+    })
+
+    ctx.OnRender(func() error {
+        // do something on render	
+    })
+
+    ctx.OnUnmount(func() error {
+        // do something on unmount	
+    })
+	
+	return ...
+}
+```
+
+As mentioned above, components are reused. For example, if you return a list of components from a tree and remove an 
+element in the middle of that list, the unmounted component will be the last element of that list, not the one that 
+was "removed" from the developer or user perspective. For example, consider this tree:
+
+```
+App
+| Todo 1
+| Todo 2
+| Todo 3
+```
+
+If you remove `Todo 2`, `Todo 2` will be reused and updated to the values of `Todo 3`, and `Todo 3` will trigger an 
+unmount. This is different from other libraries that use a "keyed" approach to lists. GO-lander does not use keys 
+and instead rely on node reuse. Let's visualize this:
+
+```
+App
+| Todo 1
+| Todo 2 <- Will now use the component function, props, and children of Todo 3
+| Todo 3 <- Will unmount
+
+# After the render cycle
+App
+| Todo 1
+| Todo 3
+```
 
 ## Experimental features
 
+We have built a few experimental features that bridge the gap between other, more feature-rich, libraries and the 
+minimalist approach of GO-lander. They are very experimental (even more than the library itself), and may be subject to 
+change or may break in unexpected ways.
+
 ### Hooks
+
+[React hooks](https://react.dev/reference/react) have changed the way we build frontend apps, and like many other frontend trying to compete in the 
+landscape dominated by React, we have also built an alternative to hooks inside GO-lander. This experiment still 
+follows the core principles of GO-lander, but given the nature of the hooks api, it required some hidden magic to 
+properly work.
+
+We have implemented two of the common hooks in React, `useState` and `useEffect`. Both use an internal version of 
+the `useMemo` hook, which is currently not available publicly.
+
+To use the hooks API, you _must_ wrap your entire application inside the `hooks.Provider` component. While this is 
+not strictly required logic wise, it does help encapsulate the logic. Future versions may remove this provider.
+
+To see the hooks in action, lets look at the [API fetch with hooks example](./example/fetchAPIWithHooks/main.go).
+
+```go
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"time"
+
+	"github.com/minivera/go-lander"
+	"github.com/minivera/go-lander/context"
+	"github.com/minivera/go-lander/experimental/hooks"
+	"github.com/minivera/go-lander/nodes"
+)
+
+type todo struct {
+	Id        int    `json:"id"`
+	Todo      string `json:"todo"`
+	Completed bool   `json:"completed"`
+	UserId    int    `json:"userId"`
+}
+
+func fetchApp(ctx context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
+	loading, setLoading, _ := hooks.UseState[bool](ctx, true)
+	currentTodo, setTodo, _ := hooks.UseState[*todo](ctx, nil)
+
+	hooks.UseEffect(ctx, func() (func() error, error) {
+		// Simulate some loading
+		time.Sleep(2 * time.Second)
+
+		resp, err := http.Get("https://dummyjson.com/todos/1")
+		if err != nil {
+			return nil, err
+		}
+
+		loadedTodo := &todo{}
+		err = json.NewDecoder(resp.Body).Decode(loadedTodo)
+		if err != nil {
+			return nil, err
+		}
+
+		err = setTodo(func(_ *todo) *todo {
+			return loadedTodo
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, setLoading(func(_ bool) bool {
+			return false
+		})
+	}, []interface{}{})
+
+	content := lander.Html("marquee", nodes.Attributes{}, nodes.Children{
+		lander.Text("Loading..."),
+	}).Style("width: 150px;")
+	if !loading {
+		content = lander.Html("div", nodes.Attributes{}, nodes.Children{
+			lander.Html("label", nodes.Attributes{
+				"for": "id",
+			}, nodes.Children{
+				lander.Text("ID"),
+			}),
+			lander.Html("input", nodes.Attributes{
+				"name":     "id",
+				"value":    currentTodo.Id,
+				"readonly": true,
+			}, nodes.Children{}),
+			lander.Html("label", nodes.Attributes{
+				"for": "todo",
+			}, nodes.Children{
+				lander.Text("Todo"),
+			}),
+			lander.Html("input", nodes.Attributes{
+				"name":     "todo",
+				"value":    currentTodo.Todo,
+				"readonly": true,
+			}, nodes.Children{}),
+			lander.Html("label", nodes.Attributes{
+				"for": "completed",
+			}, nodes.Children{
+				lander.Text("Completed?"),
+			}),
+			lander.Html("input", nodes.Attributes{
+				"name":     "completed",
+				"type":     "checkbox",
+				"checked":  currentTodo.Completed,
+				"readonly": true,
+			}, nodes.Children{}),
+		}).Style("width: 150px;")
+	}
+
+	return lander.Html("div", nodes.Attributes{}, nodes.Children{
+		lander.Html("h1", nodes.Attributes{}, nodes.Children{
+			lander.Text("Sample loading app"),
+		}),
+		lander.Html("div", nodes.Attributes{}, nodes.Children{
+			content,
+		}),
+	}).Style("padding: 1rem;")
+}
+
+func main() {
+	c := make(chan bool)
+
+	_, err := lander.RenderInto(
+		lander.Component(hooks.Provider, nodes.Props{}, nodes.Children{
+			lander.Component(fetchApp, nodes.Props{}, nodes.Children{}),
+		}),
+		"#app",
+	)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	<-c
+}
+```
+
+The `hooks.UseState` hook uses a generic type to do the type casting for you, the default value passed as its second 
+parameter must match the generic type. The hook always return three variables, always typed to the generic type you provided.
+
+- The first parameter is the current value of the state, which will be the default value on first render. Due to how 
+  scoping works in Go, you should not use this value in event listeners or code that is not executed in the same 
+  function as the hook.
+- The second parameter is the state setter function, which takes a function as its argument when called. You cannot 
+  set the state value by passing it to the state setter, it must be a return value of a function passed to 
+  `setState`. This is to ensure that you always have the latest value of the state if you need to update it. Setting 
+  the state also automatically triggers a rerender.
+- The third parameter is a state getter function. Since scoping in Go means that anonymous functions may have a 
+  different version of the state value depending on when they're called, this function ensures you will always get 
+  the most up-to-date value if you need it. This is not needed if your state value is a pointer.
+
+The `hooks.UseEffect` hook takes a function as its second parameter, which in turn must return an error and a 
+cleanup function. The effect function given is called on mount, and on any subsequent render if and only if the 
+dependencies slice given as its third parameter change. If you do not want the hook to rerender, pass an empty or nil 
+slice.
+
+The effect can return nil, or another function as its cleanup. This cleanup is automatically called on unmount, 
+which allows you to clean any asynchronous code before the component gets unmounts.
+
+All hooks must be given the context object of the function calling them as its first parameter. All memoized values 
+are saved in the context, meaning that components in an application using hooks will always rerender and cannot be 
+optimized. This should have no effect on your app's performance, but it worth considering when looking at this 
+experimental feature.
 
 ### Global state management
 
