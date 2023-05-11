@@ -908,7 +908,7 @@ cleanup function. The effect function given is called on mount, and on any subse
 dependencies slice given as its third parameter change. If you do not want the hook to rerender, pass an empty or nil 
 slice.
 
-The effect can return nil, or another function as its cleanup. This cleanup is automatically called on unmount, 
+The effect can return `nil`, or another function as its cleanup. This cleanup is automatically called on unmount, 
 which allows you to clean any asynchronous code before the component gets unmounts.
 
 All hooks must be given the context object of the function calling them as its first parameter. All memoized values 
@@ -918,8 +918,178 @@ experimental feature.
 
 ### Global state management
 
+The alternative to using the global context for state management across an entire app is to use a global struct or 
+store of some kind. To make that experience easier on developers, we've built a very basic version of a global state 
+store.
+
+To use the store, create a package in your application and export a newly created store containing your state, for 
+example:
+
+```go
+package state
+
+import "github.com/minivera/go-lander/experimental/state"
+
+type appState struct {
+	// Some state
+}
+
+var Store = state.NewStore[appState](appState{
+	// State default values
+})
+```
+
+That store export two methods, which can be used to set or consume state. `Store.SetState` sets the entire 
+stored state to the new value. It expects the context as its first parameter, and a setter function as its second, 
+which should have this signature; `func(value T) T` (where `T` is the generic type given to the store). This setter 
+will provide the current value of the store and expects a new value. We strongly recommend creating an entirely new 
+value when setting the state. The app will automatically update once the state has been set.
+
+`Store.Consumer` is a component you can use in your app to inject your state into another component. It takes a 
+`render` props, which should provides the current value of the store and must return a valid GO-lander child, like 
+any other component.
+
+```go
+lander.Component(store.Consumer, nodes.Props{
+    "render": func(currentState appState) nodes.Child {
+        // Return some nodes based on the state
+    },
+}, nodes.Children{}),
+```
+
+The consumer component takes care of any rerendering it needs to process. At the moment, it will always rerender 
+even if the state has not changed between updates, which differs from more stable state management libraries.
+
 ### In-memory routing
 
+Since WASM applications are not easily made aware of the current URL in the browser, or can easily access the 
+`history` API to modify it, we have built this experimental set of components and utilities to help you create a 
+single-page application. Please note that this only supports client-side routing, you will need to handle serving 
+your application under any route. The examples provided in this repository do not handle routing to any other URL 
+than `/`.
+
+This experiment offers a Regex based, in-memory, router. This means that routes are defined as regular expressions, 
+including parameters. We do not provide any utilities to convert more traditional paths (like `/users/:username`) to 
+regular expressions, at the moment.
+
+To get started, create a package in your application and export a newly created router. This router should be 
+available to your entire application, as it provides all the components needed ot properly handle routing.
+
+```go
+package routing
+
+import "github.com/minivera/go-lander/experimental/router"
+
+var Router = router.NewRouter()
+```
+
+Next, wrap your entire application inside a `Router.Provider` component. Routing uses the context to store the 
+current location information and to listen to any changes in the URL. The router will only update the context when 
+the location changes and will not impact your app's performance by setting the entire app to rerender on every update.
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/minivera/go-lander"
+	"github.com/minivera/go-lander/experimental/router"
+	"github.com/minivera/go-lander/nodes"
+)
+
+func main() {
+	c := make(chan bool)
+
+	_, err := lander.RenderInto(
+		lander.Component(appRouter.Provider, nodes.Props{}, nodes.Children{
+			lander.Component(yourApp, nodes.Props{}, nodes.Children{}),
+		}), "#app")
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	<-c
+}
+```
+
+Your application is now URL-aware and can use in-app routing. We provide three ways of changing the current location of 
+your application.
+
+1. `Router.Navigate(to string, replace bool)` will immediately navigate the user to the new location defined in `to`.
+   If `replace` is set to `true`, the new history entry will be replaced instead of pushed, and the user may not use 
+   the back button to go to the previous location.
+2. `Router.Link` is a component that renders a single `<a>` anchor element. Any children passed to the component will 
+   render inside the anchor. It can take two props, `to` and `replace`, which behave exactly like the `Navigate` 
+   parameters.
+3. `Router.Redirect` is a component that immediately changes the location of the browser when it renders, which will 
+   trigger an update once the navigation is completed. It can take two props, `to` and `replace`, which behave 
+   exactly like the `Navigate` parameters.
+
+The router also provides you with two components to conditionally render content based on the location.
+
+`Router.Route` is an "on/off" component which will only render its children if its `route` property matches the 
+current location. It uses a `render` prop, which takes a function that receives the current match when the URl match.
+Let's see it in action.
+
+```go
+package main
+
+func someApp(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
+	return lander.Component(appRouter.Route, nodes.Props{
+		"route": "/app/([a-zA-Z0-9]+)/(?P<subroute>[a-zA-Z0-9]+)",
+		"render": func(match router.Match) nodes.Child {
+			// Only render if the URL matches the route when compiled to a regex
+			// match.Pathname includes the actual URL location
+			// match.Params["0"] has the first path param, which as an unnamed capture group
+			// match.Params["subroute"])) has the second path param, which as named
+		},
+	}, nodes.Children{}),
+}
+```
+
+The `Router.Route` will render if the `route` regex matches the URL. It will extract the relevant capture groups, 
+which work as path parameters for your routes. A `/users/:username` route in a more standard routing library would 
+translate to `/users/(?P<username>[a-zA-Z0-9]+)` for example. The `render` prop will execute on a match with the 
+pathname and the path parameters. Any unnamed captured groups are stored in the `match.Params` map under the index 
+in the regex. For example, if we had `/users/(?P<username>[a-zA-Z0-9]+)/([a-zA-Z0-9]+)`, the second path param would 
+be stored under the index `"1"`.
+
+The `Router.Route` can be chained to create a complex router. However, each route is checked on render and multiple 
+routes may match at the same time. To make sure only one route renders, use the `Router.Switch` component.
+
+```go
+package main
+
+func someApp(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
+	lander.Component(appRouter.Switch, nodes.Props{
+		"routes": router.RouteDefinitions{
+			{"/$", func(_ router.Match) nodes.Child {
+				// Home path
+			}},
+			{"/hello/test$", func(_ router.Match) nodes.Child {
+				// Route with subpath
+			}},
+			{"/hello$", func(_ router.Match) nodes.Child {
+				// Hello route, must be after the more specific route as it might match
+				// the subroutes.
+			}},
+			{".*", func(match router.Match) nodes.Child {
+				// Catch all, 404 route.
+			}},
+		},
+	}, nodes.Children{}),
+}
+```
+
+The `Router.Switch` component takes a set of `router.RouteDefinitions` as its single `routes` prop. These 
+definitions are identical to the `Router.Router` props. The switch will check each route in order against the 
+current location and render the first match it finds. For this reason, you may want to have your more specific 
+routes appear before first level routes as they might match against sub-routes, as explained in the code above. The 
+`.*` catch all regex can be added at the end to render something if no route matched.
+
+See more in the [routing example](./example/router/main.go).
+   
 ## Acknowledgements
 
 Lander would not have been possible without the massive work done by the contributors of these libraries:

@@ -2,7 +2,6 @@ package state
 
 import (
 	"github.com/minivera/go-lander/context"
-	"github.com/minivera/go-lander/internal"
 	"github.com/minivera/go-lander/nodes"
 )
 
@@ -34,6 +33,8 @@ func (s *Store[T]) Consumer(_ context.Context, props nodes.Props, children nodes
 		panic("Store.Consumer will not render any children, but a non-zero number of children were given.")
 	}
 
+	// TODO: Force this component to rerender somehow, since we're not using context, it might not
+	// TODO: always rerender?
 	return render(s.state)
 }
 
@@ -44,6 +45,5 @@ func (s *Store[T]) Consumer(_ context.Context, props nodes.Props, children nodes
 // the new and old state merged.
 func (s *Store[T]) SetState(ctx context.Context, setter func(value T) T) error {
 	s.state = setter(s.state)
-	internal.Debugf("Setting state to %v\n", s.state)
 	return ctx.Update()
 }

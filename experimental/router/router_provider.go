@@ -9,7 +9,7 @@ import (
 )
 
 // Router contains the routing state of the application, it must be created globally in an application
-// and it used to create all the other routing components.
+// and is used to create all the other routing components.
 type Router struct {
 	currentURL string
 
