@@ -13,6 +13,8 @@ import (
 	"strings"
 
 	"github.com/magefile/mage/mg"
+	"github.com/magefile/mage/sh"
+	"github.com/playwright-community/playwright-go"
 )
 
 // Updates the JavaScript glue code inside the example directory using the code provided in the $GOROOT.
@@ -268,7 +270,7 @@ func RunExampleViewer() error {
 
 	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("failed to run build command %s, %s. Error was %w", cmd.String(), errOutput.String(), err)
+		return fmt.Errorf("failed to run command %s, %s. Error was %w", cmd.String(), errOutput.String(), err)
 	}
 
 	return nil
@@ -280,6 +282,49 @@ func InstallDeps() error {
 
 	cmd := exec.Command("go", "get", "./...")
 	return cmd.Run()
+}
+
+// Installs playwright for end-to-end browser testing
+func InstallPlaywright() error {
+	fmt.Println("Installing Playwright")
+
+	return playwright.Install()
+}
+
+// Run the end-to-end tests from the example directory
+func Tests() error {
+	mg.Deps(InstallDeps, InstallPlaywright, BuildExampleViewer)
+
+	fmt.Println("Starting example viewer in the background")
+
+	// Run the example viewer in the background
+	var errOutput bytes.Buffer
+	cmd := exec.Command("go", "run", "./example/.exampleSwitcher/serve.go")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = &errOutput
+	err := cmd.Start()
+	if err != nil {
+		return fmt.Errorf("failed to run build command %s, %s. Error was %w", cmd.String(), errOutput.String(), err)
+	}
+
+	go func() {
+		err = cmd.Wait()
+		if err != nil {
+			fmt.Printf("Command finished with error: %v", err)
+		}
+	}()
+
+	result, err := sh.Output("go", "test", "./endToEnd")
+	if err != nil {
+		return fmt.Errorf("failed to run test command, %s. Error was %w", result, err)
+	}
+
+	err = cmd.Process.Kill()
+	if err != nil {
+		return fmt.Errorf("failed to run kill server. Error was %w", err)
+	}
+
+	return nil
 }
 
 // Cleans the WASm and build artifacts from the repository
