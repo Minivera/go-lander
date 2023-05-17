@@ -10,13 +10,12 @@ import (
 	"github.com/minivera/go-lander/nodes"
 )
 
-func addTodoForm(ctx context.Context, props nodes.Props, _ nodes.Children) nodes.Child {
-	onAdd, ok := props["onAdd"].(func(value string) error)
-	if !ok {
-		fmt.Println("addTodoForm expects a function as its onAdd prop")
-		// TODO: This is pretty terrible, improve. Maybe make props a struct?
-		panic("addTodoForm expects a function as its onAdd prop")
-	}
+type addTodoFormProps struct {
+	onAdd func(value string) error
+}
+
+func addTodoForm(ctx context.Context, props addTodoFormProps, _ nodes.Children) nodes.Child {
+	onAdd := props.onAdd
 
 	value, setValue, getValue := hooks.UseState[string](ctx, "")
 
@@ -53,27 +52,16 @@ type todo struct {
 	completed bool
 }
 
-func todoComponent(ctx context.Context, props nodes.Props, _ nodes.Children) nodes.Child {
-	onDelete, ok := props["onDelete"].(func() error)
-	if !ok {
-		fmt.Println("todoComponent expects a function as its onDelete prop")
-		// TODO: This is pretty terrible, improve. Maybe make props a struct?
-		panic("todoComponent expects a function as its onDelete prop")
-	}
+type todoComponentProps struct {
+	onDelete    func() error
+	onChange    func() error
+	currentTodo todo
+}
 
-	onChange, ok := props["onChange"].(func() error)
-	if !ok {
-		fmt.Println("todoComponent expects a function as its onDelete prop")
-		// TODO: This is pretty terrible, improve. Maybe make props a struct?
-		panic("todoComponent expects a function as its onDelete prop")
-	}
-
-	currentTodo, ok := props["todo"].(todo)
-	if !ok {
-		fmt.Println("todoComponent expects a todo as its todo prop")
-		// TODO: This is pretty terrible, improve. Maybe make props a struct?
-		panic("todoComponent expects a todo as its todo prop")
-	}
+func todoComponent(ctx context.Context, props todoComponentProps, _ nodes.Children) nodes.Child {
+	onDelete := props.onDelete
+	onChange := props.onChange
+	currentTodo := props.currentTodo
 
 	return lander.Html("li", nodes.Attributes{}, nodes.Children{
 		lander.Html("div", nodes.Attributes{}, nodes.Children{
@@ -180,15 +168,14 @@ func todosApp(ctx context.Context, _ nodes.Props, _ nodes.Children) nodes.Child 
 
 	for i, todo := range todos {
 		localTodo := todo
-		todosComponents[i] = lander.Component(todoComponent, nodes.Props{
-			"onDelete": func() error {
+		todosComponents[i] = lander.Component(todoComponent, todoComponentProps{
+			onDelete: func() error {
 				return deleteTodo(localTodo.id)
 			},
-			"onChange": func() error {
-				fmt.Printf("Triggering on change of todo %d, %v\n", localTodo.id, localTodo)
+			onChange: func() error {
 				return updateTodo(localTodo.id, !localTodo.completed)
 			},
-			"todo": localTodo,
+			currentTodo: localTodo,
 		}, nodes.Children{})
 	}
 
@@ -201,8 +188,8 @@ func todosApp(ctx context.Context, _ nodes.Props, _ nodes.Children) nodes.Child 
 				lander.Text("Todos"),
 			}),
 			lander.Html("ul", nodes.Attributes{}, todosComponents).Style("margin-top: 1rem;"),
-			lander.Component(addTodoForm, nodes.Props{
-				"onAdd": func(value string) error {
+			lander.Component(addTodoForm, addTodoFormProps{
+				onAdd: func(value string) error {
 					return addTodo(value)
 				},
 			}, nodes.Children{}),

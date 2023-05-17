@@ -226,10 +226,10 @@ import (
 )
 
 lander.HTML('div', nodes.Attributes{
-"checked": true,              // Will be converted to `checked=""` on the DOM element if true and omitted if false.
-"placeholder": "some string", // Will be kept as a string and assigned on the DOM element.
-"value": -1, // Will be converted to as string and assigned on the DOM element.
-"click": func (event *events.DOMEvent) error {} // Will be assigned using `addEventListener` on the DOM element.
+    "checked": true,              // Will be converted to `checked=""` on the DOM element if true and omitted if false.
+    "placeholder": "some string", // Will be kept as a string and assigned on the DOM element.
+    "value": -1, // Will be converted to as string and assigned on the DOM element.
+    "click": func (event *events.DOMEvent) error {} // Will be assigned using `addEventListener` on the DOM element.
 }, nodes.Children{});
 ```
 
@@ -280,12 +280,13 @@ given specific inputs, returns a single lander node.
 Every component's signature must match the signature of `nodes.FunctionComponent`, namely:
 
 ```go
-type FunctionComponent func (ctx context.Context, props nodes.Props, children nodes.Children) nodes.Child
+type FunctionComponent[T any] func (ctx context.Context, props T, children nodes.Children) nodes.Child
 ```
 
-The `context.Context` is covered in a later section. The component's `Props` are, like HTML attributes, a map of
-string keys to any type. The properties are never converted by GO-lander, they will be passed along to the function.
-When GO-lander renders the tree, it calls each component in the tree to generate its result (called a render).
+The `context.Context` is covered in a later section. The component's `Props` are, unlike HTML attributes, a generic
+type that can be assigned any type. The `nodes.Props` type if provided as a utility for components that take no 
+props. The properties are never converted by GO-lander, they will be passed along to the function. When GO-lander 
+renders the tree, it calls each component in the tree to generate its result (called a render).
 
 You are responsible for writing your components in any way you want, GO-lander only provides you with a mean to
 return a child and have it appear in the updated DOM tree.
@@ -303,8 +304,12 @@ import (
 	"github.com/minivera/go-lander/nodes"
 )
 
-func helloWorld(_ context.Context, props nodes.Props, children nodes.Children) nodes.Child {
-	message := props["message"].(string) // Lander does not provide any prop type safety for now
+type helloWorldProps struct {
+	message string
+}
+
+func helloWorld(_ context.Context, props helloWorldProps, children nodes.Children) nodes.Child {
+	message := props.message // Lander does not check the types, make sure you validate them yourself
 
 	return lander.Html("h1", nodes.Attributes{}, nodes.Children{
 		lander.Text(message),
@@ -316,8 +321,9 @@ func main() {
 	c := make(chan bool)
 
 	_, err := lander.RenderInto(
-		lander.Component(helloWorld, nodes.Props{
-			"message": "Hello, World!"
+		// `Component` is a generic function, the type is infered from the types of the props
+		lander.Component(helloWorld, helloWorldProps{
+			message: "Hello, World!"
 		}, nodes.Children{
 			lander.Text("From the lander README"),
 		}), "#app")
@@ -331,12 +337,12 @@ func main() {
 
 When creating a component node through `lander.Component`, the `props` passed will be given to the component's
 function, as will the children. If the component returns another component as part of its rendered node's descendant,
-that component will in-turn be rendered until all components in the tree have been. This is the entire render
-process of GO-lander.
+that component will in-turn be rendered until all components in the tree have been rendered. This is the GO-lander's 
+render cycle in a nutshell.
 
-GO-lander does not provide any type safety for props, they are assigned in a `map[string]interface{}` variable and
-passed without any type information. You are responsible for checking the types of the values you receive, and to
-`panic` if the types are not correct or a required prop is missing.
+GO-lander does not provide any type safety for props, they are passed to GO-lander's internal logic without any type 
+information. You are responsible for checking the types of the values you receive, and to `panic` if the types are 
+not correct or a required prop is missing.
 
 Any component may return `nil` instead of a `nodes.Child`. The component's render result will be ignored and any
 previous node it rendered will be removed. The component may return a valid node in a later render cycle, the result
@@ -364,11 +370,13 @@ import (
 	"github.com/minivera/go-lander/nodes"
 )
 
-func helloWorld(_ context.Context, props nodes.Props, children nodes.Children) nodes.Child {
-	message := props["message"].(string) // Lander does not provide any prop type safety for now
+type helloWorldProps struct {
+	message string
+}
 
+func helloWorld(_ context.Context, props helloWorldProps, children nodes.Children) nodes.Child {
 	return lander.Html("h1", nodes.Attributes{}, nodes.Children{
-		lander.Text(message),
+		lander.Text(props.message),
 		// But now the fragment will take care of the children
 		lander.Fragment(children),
 	}).Style("margin: 1rem;")
@@ -378,8 +386,8 @@ func main() {
 	c := make(chan bool)
 
 	_, err := lander.RenderInto(
-		lander.Component(helloWorld, nodes.Props{
-			"message": "Hello, World!"
+		lander.Component(helloWorld, helloWorldProps{
+			message: "Hello, World!"
 		}, nodes.Children{
 			lander.Text("From the lander README"),
 			lander.Text("This node would previously have been ignored!"),
@@ -569,16 +577,20 @@ wanted to carry over the theme to all components, you would need to pass it as p
 func FirstComponent(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
     someTheme := createTheme()
     
-    return lander.Component(secondComponent, nodes.Props{
-        "theme": someTheme
+    return lander.Component(secondComponent, SecondComponentProps{
+        theme: someTheme
     }, nodes.Children{})
 }
 
-func SecondComponent(_ context.Context, props nodes.Props, _ nodes.Children) nodes.Child {
-    someTheme := props["theme"].(Theme)
+type SecondComponentProps struct {
+	
+}
+
+func SecondComponent(_ context.Context, props SecondComponentProps, _ nodes.Children) nodes.Child {
+    someTheme := props.theme
     
-    return lander.Component(thirdComponent, nodes.Props{
-        "theme": someTheme
+    return lander.Component(thirdComponent, thirdComponentProps{
+        theme: someTheme
     }, nodes.Children{})
 }
 
@@ -954,12 +966,12 @@ will provide the current value of the store and expects a new value. We strongly
 value when setting the state. The app will automatically update once the state has been set.
 
 `Store.Consumer` is a component you can use in your app to inject your state into another component. It takes a
-`render` props, which should provides the current value of the store and must return a valid GO-lander child, like
+`Render` prop, which should provides the current value of the store and must return a valid GO-lander child, like
 any other component.
 
 ```go
-lander.Component(store.Consumer, nodes.Props{
-    "render": func (currentState appState) nodes.Child {
+lander.Component(store.Consumer, store.ConsumerProps{
+    Render: func (currentState appState) nodes.Child {
     // Return some nodes based on the state
     },
 }, nodes.Children{}),
@@ -1036,17 +1048,19 @@ your application.
 
 The router also provides you with two components to conditionally render content based on the location.
 
-`Router.Route` is an "on/off" component which will only render its children if its `route` property matches the
-current location. It uses a `render` prop, which takes a function that receives the current match when the URl matches.
+`Router.Route` is an "on/off" component which will only render its children if its `Route` property matches the
+current location. It uses a `Render` prop, which takes a function that receives the current match when the URl matches.
 Let's see it in action.
 
 ```go
 package main
 
+import "github.com/minivera/go-lander/experimental/router"
+
 func someApp(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
-	return lander.Component(appRouter.Route, nodes.Props{
-		"route": "/app/([a-zA-Z0-9]+)/(?P<subroute>[a-zA-Z0-9]+)",
-		"render": func(match router.Match) nodes.Child {
+	return lander.Component(appRouter.Route, router.RouteProps{
+		Route: "/app/([a-zA-Z0-9]+)/(?P<subroute>[a-zA-Z0-9]+)",
+		Render: func(match router.Match) nodes.Child {
 			// Only render if the URL matches the route when compiled to a regex
 			// match.Pathname includes the actual URL location
 			// match.Params["0"] has the first path param, which as an unnamed capture group
@@ -1056,9 +1070,9 @@ func someApp(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
 }
 ```
 
-The `Router.Route` will render if the `route` regex matches the URL. It will extract the relevant capture groups,
-which work as path parameters for your routes. A `/users/:username` route in a more standard routing library would
-translate to `/users/(?P<username>[a-zA-Z0-9]+)` for example. The `render` prop will execute on a match with the
+The `Router.Route` will extract the relevant capture groups from `Route`, which work as path parameters for your 
+routes. A `/users/:username` route in a more standard routing library would translate to 
+`/users/(?P<username>[a-zA-Z0-9]+)` for example. The `Render` function is called with a match struct containing the
 pathname and the path parameters. Any unnamed captured groups are stored in the `match.Params` map under the index
 in the regex. For example, if we had `/users/(?P<username>[a-zA-Z0-9]+)/([a-zA-Z0-9]+)`, the second path param would
 be stored under the index `"1"`.
@@ -1069,9 +1083,11 @@ routes may match at the same time. To make sure only one route renders, use the 
 ```go
 package main
 
+import "github.com/minivera/go-lander/experimental/router"
+
 func someApp(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
-	lander.Component(appRouter.Switch, nodes.Props{
-		"routes": router.RouteDefinitions{
+	lander.Component(appRouter.Switch, router.SwitchProps{
+		Routes: router.RouteDefinitions{
 			{"/$", func(_ router.Match) nodes.Child {
 				// Home path
 			}},
@@ -1090,7 +1106,7 @@ func someApp(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
 }
 ```
 
-The `Router.Switch` component takes a set of `router.RouteDefinitions` as its single `routes` prop. These
+The `Router.Switch` component takes a set of `router.RouteDefinitions` as its single `Routes` prop. These
 definitions are identical to the `Router.Router` props. The switch will check each route in order against the
 current location and render the first match it finds. For this reason, you may want to have your more specific
 routes appear before first level routes as they might match against sub-routes, as explained in the code above. The

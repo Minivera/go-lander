@@ -3,27 +3,31 @@ package nodes
 import (
 	"reflect"
 
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/minivera/go-lander/context"
 )
 
-// Props is a map of properties to assign to a component. Technically interchangeable with
-// Attributes or `map[string]interface{}`, this type is provided for convenience.
-type Props = map[string]interface{}
+// Props is a utility type for empty properties to assign to a component. Technically
+// interchangeable with struct{}, this type is provided for convenience.
+type Props struct{}
 
 // FunctionComponent is the type definition for a function component's factory. This should be the
 // definition given to a FuncNode when its created.
-type FunctionComponent func(ctx context.Context, props Props, children Children) Child
+type FunctionComponent[T any] func(ctx context.Context, props T, children Children) Child
+
+type noGenericFunctionComponent func(ctx context.Context, props interface{}, children Children) Child
 
 // FuncNode is an implementation of the Node interface which implements the logic to handle
 // and render components inside Lander.
 type FuncNode struct {
 	baseNode
 
-	factory       FunctionComponent
+	factory       noGenericFunctionComponent
 	givenChildren []Node
 
 	// Properties are the node's properties, which are passed to the factory on render.
-	Properties Props
+	Properties interface{}
 
 	// RenderResult is a reference to the result of the factory render, which is kept to allow
 	// diffing later in the algorithm.
@@ -31,7 +35,7 @@ type FuncNode struct {
 }
 
 // NewFuncNode creates a new component node with the provided information.
-func NewFuncNode(factory FunctionComponent, props Props, givenChildren []Node) *FuncNode {
+func NewFuncNode(factory noGenericFunctionComponent, props interface{}, givenChildren []Node) *FuncNode {
 	return &FuncNode{
 		Properties:    props,
 		factory:       factory,
@@ -60,21 +64,12 @@ func (n *FuncNode) Diff(other Node) bool {
 		return true
 	}
 
-	if len(otherAsFunc.Properties) != len(n.Properties) {
+	if reflect.TypeOf(otherAsFunc.Properties) != reflect.TypeOf(n.Properties) {
 		return true
 	}
 
-	for key, val := range n.Properties {
-		otherVal, ok := otherAsFunc.Properties[key]
-		if !ok {
-			return true
-		}
-
-		if reflect.TypeOf(val).Comparable() && reflect.TypeOf(otherVal).Comparable() {
-			if val != otherVal {
-				return true
-			}
-		}
+	if !cmp.Equal(otherAsFunc.Properties, n.Properties) {
+		return true
 	}
 
 	// We check if any of the given children were dirty in the general diff code

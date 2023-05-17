@@ -31,11 +31,12 @@ var store = state.NewStore[appState](appState{
 	},
 })
 
-func addTodoForm(ctx context.Context, props nodes.Props, _ nodes.Children) nodes.Child {
-	currentState, ok := props["state"].(appState)
-	if !ok {
-		panic("addTodoForm expects the state store as its state prop")
-	}
+type addTodoFormProps struct {
+	state appState
+}
+
+func addTodoForm(ctx context.Context, props addTodoFormProps, _ nodes.Children) nodes.Child {
+	currentState := props.state
 
 	return lander.Html("div", nodes.Attributes{}, nodes.Children{
 		lander.Html("input", nodes.Attributes{
@@ -81,21 +82,16 @@ func addTodoForm(ctx context.Context, props nodes.Props, _ nodes.Children) nodes
 	}).Style("margin-top: 1rem; display: flex")
 }
 
-func todoComponent(_ context.Context, props nodes.Props, _ nodes.Children) nodes.Child {
-	onDelete, ok := props["onDelete"].(func() error)
-	if !ok {
-		panic("todoComponent expects a function as its onDelete prop")
-	}
+type todoComponentProps struct {
+	onDelete    func() error
+	onChange    func() error
+	currentTodo todo
+}
 
-	onChange, ok := props["onChange"].(func() error)
-	if !ok {
-		panic("todoComponent expects a function as its onDelete prop")
-	}
-
-	currentTodo, ok := props["todo"].(todo)
-	if !ok {
-		panic("todoComponent expects a todo as its todo prop")
-	}
+func todoComponent(_ context.Context, props todoComponentProps, _ nodes.Children) nodes.Child {
+	onDelete := props.onDelete
+	onChange := props.onChange
+	currentTodo := props.currentTodo
 
 	return lander.Html("li", nodes.Attributes{}, nodes.Children{
 		lander.Html("div", nodes.Attributes{}, nodes.Children{
@@ -121,11 +117,12 @@ func todoComponent(_ context.Context, props nodes.Props, _ nodes.Children) nodes
 
 }
 
-func todosApp(ctx context.Context, props nodes.Props, _ nodes.Children) nodes.Child {
-	currentState, ok := props["state"].(appState)
-	if !ok {
-		panic("todosApp expects the state store as its state prop")
-	}
+type todosAppProps struct {
+	state appState
+}
+
+func todosApp(ctx context.Context, props todosAppProps, _ nodes.Children) nodes.Child {
+	currentState := props.state
 
 	updateTodo := func(todoId int, completed bool) error {
 		return store.SetState(ctx, func(currentState appState) appState {
@@ -183,15 +180,14 @@ func todosApp(ctx context.Context, props nodes.Props, _ nodes.Children) nodes.Ch
 
 	for i, todo := range currentState.todos {
 		localTodo := todo
-		todosComponents[i] = lander.Component(todoComponent, nodes.Props{
-			"onDelete": func() error {
+		todosComponents[i] = lander.Component(todoComponent, todoComponentProps{
+			onDelete: func() error {
 				return deleteTodo(localTodo.id)
 			},
-			"onChange": func() error {
-				fmt.Printf("Triggering on change of todo %d, %v\n", localTodo.id, localTodo)
+			onChange: func() error {
 				return updateTodo(localTodo.id, !localTodo.completed)
 			},
-			"todo": localTodo,
+			currentTodo: localTodo,
 		}, nodes.Children{})
 	}
 
@@ -204,10 +200,10 @@ func todosApp(ctx context.Context, props nodes.Props, _ nodes.Children) nodes.Ch
 				lander.Text("Todos"),
 			}),
 			lander.Html("ul", nodes.Attributes{}, todosComponents).Style("margin-top: 1rem;"),
-			lander.Component(store.Consumer, nodes.Props{
-				"render": func(currentState appState) nodes.Child {
-					return lander.Component(addTodoForm, nodes.Props{
-						"state": currentState,
+			lander.Component(store.Consumer, state.ConsumerProps[appState]{
+				Render: func(currentState appState) nodes.Child {
+					return lander.Component(addTodoForm, addTodoFormProps{
+						state: currentState,
 					}, nodes.Children{})
 				},
 			}, nodes.Children{}),
@@ -219,9 +215,9 @@ func main() {
 	c := make(chan bool)
 
 	_, err := lander.RenderInto(
-		lander.Component(store.Consumer, nodes.Props{
-			"render": func(currentState appState) nodes.Child {
-				return lander.Component(todosApp, nodes.Props{"state": currentState}, nodes.Children{})
+		lander.Component(store.Consumer, state.ConsumerProps[appState]{
+			Render: func(currentState appState) nodes.Child {
+				return lander.Component(todosApp, todosAppProps{state: currentState}, nodes.Children{})
 			},
 		}, nodes.Children{}),
 		"#app",

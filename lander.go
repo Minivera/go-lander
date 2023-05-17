@@ -3,6 +3,7 @@
 package lander
 
 import (
+	"github.com/minivera/go-lander/context"
 	"github.com/minivera/go-lander/nodes"
 )
 
@@ -32,8 +33,12 @@ func Text(text string) *nodes.TextNode {
 //
 // Lander expects a component as its first node, this component could then render an HTML element or text
 // node, but only a component can be given to RenderInto.
-func Component(factory nodes.FunctionComponent, props nodes.Props, children nodes.Children) *nodes.FuncNode {
-	return nodes.NewFuncNode(factory, props, children)
+func Component[T any](factory nodes.FunctionComponent[T], props T, children nodes.Children) *nodes.FuncNode {
+	// Create an intermediary function so we hide the generic away. The generic is here only for
+	// developer convenience.
+	return nodes.NewFuncNode(func(ctx context.Context, props interface{}, children nodes.Children) nodes.Child {
+		return factory(ctx, props.(T), children)
+	}, props, children)
 }
 
 // Fragment creates a fragment node, which is a utility node that allows returning multiple children from

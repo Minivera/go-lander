@@ -20,14 +20,18 @@ func NewStore[T any](defaultState T) *Store[T] {
 	}
 }
 
+// ConsumerProps are the properties to assign to the Consumer component, use as the generic type.
+type ConsumerProps[T any] struct {
+	// Render is the function that will be executed to render this component's content. It takes in the entire
+	// state as parameters and will render every time the state is updated.
+	Render func(state T) nodes.Child
+}
+
 // Consumer is a component that will use its `render` prop to render a component with the requested state.
 // The render function will always execute with the most up-to-date version of the state. Consumer
 // expects no children and only renders its render prop.
-func (s *Store[T]) Consumer(_ context.Context, props nodes.Props, children nodes.Children) nodes.Child {
-	render, ok := props["render"].(func(state T) nodes.Child)
-	if !ok {
-		panic("Store.Consumer expects a component render prop as its `render` property.")
-	}
+func (s *Store[T]) Consumer(_ context.Context, props ConsumerProps[T], children nodes.Children) nodes.Child {
+	render := props.Render
 
 	if len(children) > 0 {
 		panic("Store.Consumer will not render any children, but a non-zero number of children were given.")

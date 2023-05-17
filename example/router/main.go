@@ -16,8 +16,8 @@ func routingApp(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child 
 		lander.Html("h1", nodes.Attributes{}, nodes.Children{
 			lander.Text("Sample routing app"),
 		}),
-		lander.Component(appRouter.Switch, nodes.Props{
-			"routes": router.RouteDefinitions{
+		lander.Component(appRouter.Switch, router.SwitchProps{
+			Routes: router.RouteDefinitions{
 				{"/$", func(_ router.Match) nodes.Child {
 					return lander.Html("div", nodes.Attributes{}, nodes.Children{
 						lander.Html("h2", nodes.Attributes{}, nodes.Children{
@@ -25,29 +25,29 @@ func routingApp(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child 
 						}),
 						lander.Html("ul", nodes.Attributes{}, nodes.Children{
 							lander.Html("li", nodes.Attributes{}, nodes.Children{
-								lander.Component(appRouter.Link, nodes.Props{
-									"to": "/hello",
+								lander.Component(appRouter.Link, router.LinkProps{
+									To: "/hello",
 								}, nodes.Children{
 									lander.Text("To /hello"),
 								}),
 							}),
 							lander.Html("li", nodes.Attributes{}, nodes.Children{
-								lander.Component(appRouter.Link, nodes.Props{
-									"to": "/app",
+								lander.Component(appRouter.Link, router.LinkProps{
+									To: "/app",
 								}, nodes.Children{
 									lander.Text("To /app"),
 								}),
 							}),
 							lander.Html("li", nodes.Attributes{}, nodes.Children{
-								lander.Component(appRouter.Link, nodes.Props{
-									"to": "/redirect",
+								lander.Component(appRouter.Link, router.LinkProps{
+									To: "/redirect",
 								}, nodes.Children{
 									lander.Text("To /redirect, which will send us back here"),
 								}),
 							}),
 							lander.Html("li", nodes.Attributes{}, nodes.Children{
-								lander.Component(appRouter.Link, nodes.Props{
-									"to": "/notfound",
+								lander.Component(appRouter.Link, router.LinkProps{
+									To: "/notfound",
 								}, nodes.Children{
 									lander.Text("To the 404 page"),
 								}),
@@ -61,8 +61,8 @@ func routingApp(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child 
 							lander.Text("Hello, world!"),
 						}),
 						lander.Html("div", nodes.Attributes{}, nodes.Children{
-							lander.Component(appRouter.Link, nodes.Props{
-								"to": "/",
+							lander.Component(appRouter.Link, router.LinkProps{
+								To: "/",
 							}, nodes.Children{
 								lander.Text("Go back to Home"),
 							}),
@@ -74,9 +74,9 @@ func routingApp(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child 
 						lander.Html("h2", nodes.Attributes{}, nodes.Children{
 							lander.Text("Welcome to the app"),
 						}),
-						lander.Component(appRouter.Route, nodes.Props{
-							"route": "/app/([a-zA-Z0-9]+)/(?P<subroute>[a-zA-Z0-9]+)",
-							"render": func(match router.Match) nodes.Child {
+						lander.Component(appRouter.Route, router.RouteProps{
+							Route: "/app/([a-zA-Z0-9]+)/(?P<subroute>[a-zA-Z0-9]+)",
+							Render: func(match router.Match) nodes.Child {
 								return lander.Html("div", nodes.Attributes{}, nodes.Children{
 									lander.Html("b", nodes.Attributes{}, nodes.Children{
 										lander.Text("Matched:"),
@@ -94,15 +94,15 @@ func routingApp(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child 
 							},
 						}, nodes.Children{}),
 						lander.Html("div", nodes.Attributes{}, nodes.Children{
-							lander.Component(appRouter.Link, nodes.Props{
-								"to": "/app/something/other",
+							lander.Component(appRouter.Link, router.LinkProps{
+								To: "/app/something/other",
 							}, nodes.Children{
 								lander.Text("Test the pattern matching"),
 							}),
 						}),
 						lander.Html("div", nodes.Attributes{}, nodes.Children{
-							lander.Component(appRouter.Link, nodes.Props{
-								"to": "/",
+							lander.Component(appRouter.Link, router.LinkProps{
+								To: "/",
 							}, nodes.Children{
 								lander.Text("Go back to Home"),
 							}),
@@ -110,8 +110,8 @@ func routingApp(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child 
 					})
 				}},
 				{"/redirect$", func(_ router.Match) nodes.Child {
-					return lander.Component(appRouter.Redirect, nodes.Props{
-						"to": "/",
+					return lander.Component(appRouter.Redirect, router.RedirectProps{
+						To: "/",
 					}, nodes.Children{})
 
 				}},
@@ -121,8 +121,8 @@ func routingApp(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child 
 							lander.Text(fmt.Sprintf("404! `%s` was not found", match.Pathname)),
 						}),
 						lander.Html("div", nodes.Attributes{}, nodes.Children{
-							lander.Component(appRouter.Link, nodes.Props{
-								"to": "/",
+							lander.Component(appRouter.Link, router.LinkProps{
+								To: "/",
 							}, nodes.Children{
 								lander.Text("Go back to Home"),
 							}),

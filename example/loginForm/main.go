@@ -54,7 +54,7 @@ func (f *loginForm) render(_ context.Context, _ nodes.Props, _ nodes.Children) n
 			}, nodes.Children{
 				lander.Text("Submit"),
 			}).Style("margin-top: 1rem;"),
-		}),
+		}).Style("display: flex; flex-direction: column; gap: 0.5rem;"),
 	}).Style("margin: 1rem;")
 }
 

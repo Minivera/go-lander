@@ -15,13 +15,12 @@ type addTodoForm struct {
 	value string
 }
 
-func (a *addTodoForm) render(_ context.Context, props nodes.Props, _ nodes.Children) nodes.Child {
-	onAdd, ok := props["onAdd"].(func(value string) error)
-	if !ok {
-		fmt.Println("addTodoForm expects a function as its onAdd prop")
-		// TODO: This is pretty terrible, improve. Maybe make props a struct?
-		panic("addTodoForm expects a function as its onAdd prop")
-	}
+type addTodoFormProps struct {
+	onAdd func(value string) error
+}
+
+func (a *addTodoForm) render(_ context.Context, props addTodoFormProps, _ nodes.Children) nodes.Child {
+	onAdd := props.onAdd
 
 	return lander.Html("div", nodes.Attributes{}, nodes.Children{
 		lander.Html("input", nodes.Attributes{
@@ -117,7 +116,6 @@ func (a *todosApp) addTodo(name string) {
 }
 
 func (a *todosApp) render(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
-	fmt.Printf("Todos are %v\n", a.todos)
 	todos := make(nodes.Children, len(a.todos))
 
 	for i, todo := range a.todos {
@@ -156,8 +154,8 @@ func (a *todosApp) render(_ context.Context, _ nodes.Props, _ nodes.Children) no
 				lander.Text("Todos"),
 			}),
 			lander.Html("ul", nodes.Attributes{}, todos).Style("margin-top: 1rem;"),
-			lander.Component(a.form.render, nodes.Props{
-				"onAdd": func(value string) error {
+			lander.Component[addTodoFormProps](a.form.render, addTodoFormProps{
+				onAdd: func(value string) error {
 					a.addTodo(value)
 					// Reset the form's state
 					a.form = addTodoForm{
