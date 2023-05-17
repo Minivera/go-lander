@@ -188,11 +188,13 @@ func (r *Router) Link(_ context.Context, props nodes.Props, children nodes.Child
 	}
 
 	return nodes.NewHTMLNode("a", nodes.Attributes{
-		"click": func(*events.DOMEvent) error {
+		"click": func(e *events.DOMEvent) error {
 			r.Navigate(to, replace)
+			e.PreventDefault()
 
 			return nil
 		},
+		"href": to,
 	}, children)
 }
 

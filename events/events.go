@@ -7,7 +7,7 @@ import (
 )
 
 // EventListenerFunc is the type definition for a DOM event listener in javascript. Use this type
-// to validate the vent listeners passed as props to DOM elements.
+// to validate the event listeners passed as props to DOM elements.
 type EventListenerFunc func(*DOMEvent) error
 
 // EventListener is the concrete definition of a DOM event listener. It is used to keep track of the
