@@ -353,22 +353,25 @@ func (p *patchRemove) Execute(document js.Value, styles *[]string) error {
 type patchReplace struct {
 	listenerFunc             func(listener events.EventListenerFunc, this js.Value, args []js.Value) interface{}
 	closestDOMParent         js.Value
+	positionInDOMParent      int
 	parent, newNode, oldNode nodes.Node
 }
 
 func newPatchReplace(
 	listenerFunc func(listener events.EventListenerFunc, this js.Value, args []js.Value) interface{},
 	closestDOMParent js.Value,
+	positionInDOMParent int,
 	parent,
 	old,
 	new nodes.Node,
 ) Patch {
 	return &patchReplace{
-		listenerFunc:     listenerFunc,
-		closestDOMParent: closestDOMParent,
-		parent:           parent,
-		newNode:          new,
-		oldNode:          old,
+		listenerFunc:        listenerFunc,
+		closestDOMParent:    closestDOMParent,
+		positionInDOMParent: positionInDOMParent,
+		parent:              parent,
+		newNode:             new,
+		oldNode:             old,
 	}
 }
 
@@ -383,7 +386,7 @@ func (p *patchReplace) Execute(document js.Value, styles *[]string) error {
 		parent.RenderResult = p.newNode
 
 		if oldConverted, ok := p.oldNode.(*nodes.HTMLNode); ok {
-			// If the old node was an HTML node, remove it so we can mount from fresh
+			// If the old node was an HTML node, remove it, so we can mount from fresh
 			p.closestDOMParent.Call("removeChild", oldConverted.DomNode)
 		}
 
@@ -425,12 +428,25 @@ func (p *patchReplace) replaceChild(document js.Value, styles *[]string, parentD
 	case *nodes.TextNode:
 		oldDomNode = converted.DomNode
 	case *nodes.FuncNode:
+		// If the render result is nil, this means we have to insert the new node
+		// in the HTML where this old node would be. Trigger an insert.
+		if converted.RenderResult == nil {
+			return (&patchInsert{
+				listenerFunc:        p.listenerFunc,
+				closestDOMParent:    p.closestDOMParent,
+				positionInDOMParent: p.positionInDOMParent,
+				parent:              p.parent,
+				newNode:             p.newNode,
+			}).insertChild(document, styles, p.closestDOMParent)
+		}
+
 		// If we hit a func node, trigger again on this func node's render result as the old
 		// node, this should make sure we will, at some point, hit the root HTML element
 		// of this node.
 		return newPatchReplace(
 			p.listenerFunc,
 			p.closestDOMParent,
+			p.positionInDOMParent,
 			p.parent,
 			converted.RenderResult,
 			p.newNode,
@@ -442,6 +458,7 @@ func (p *patchReplace) replaceChild(document js.Value, styles *[]string, parentD
 		err := newPatchReplace(
 			p.listenerFunc,
 			p.closestDOMParent,
+			p.positionInDOMParent,
 			p.parent,
 			converted.Children[0],
 			p.newNode,
@@ -493,7 +510,14 @@ func (p *patchReplace) replaceChild(document js.Value, styles *[]string, parentD
 		context.RegisterComponentContext("render", typedNode)
 		context.RegisterComponentContext("mount", typedNode)
 
-		return newPatchReplace(p.listenerFunc, parentDOMNode, typedNode, p.oldNode, typedNode.Clone().Render(context.CurrentContext)).
+		return newPatchReplace(
+			p.listenerFunc,
+			parentDOMNode,
+			-1,
+			typedNode,
+			p.oldNode,
+			typedNode.Clone().Render(context.CurrentContext),
+		).
 			Execute(document, styles)
 	case *nodes.FragmentNode:
 		if len(typedNode.Children) < 1 {
@@ -501,7 +525,14 @@ func (p *patchReplace) replaceChild(document js.Value, styles *[]string, parentD
 		}
 
 		// Replace the last node with the first children of the fragment
-		err := newPatchReplace(p.listenerFunc, parentDOMNode, typedNode, p.oldNode, typedNode.Children[0]).
+		err := newPatchReplace(
+			p.listenerFunc,
+			parentDOMNode,
+			-1,
+			typedNode,
+			p.oldNode,
+			typedNode.Children[0],
+		).
 			Execute(document, styles)
 		if err != nil {
 			return err

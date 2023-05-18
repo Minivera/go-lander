@@ -80,7 +80,7 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 	} else if reflect.TypeOf(old) != reflect.TypeOf(new) {
 		internal.Debugln("Types were different, replacing")
 		// If both nodes exist, but they are of a different type, replace and patch
-		patches = append(patches, newPatchReplace(listenerFunc, prevDOMNode, prev, old, new))
+		patches = append(patches, newPatchReplace(listenerFunc, prevDOMNode, *indexInPrevDOMNode, prev, old, new))
 
 		switch typedNode := new.(type) {
 		case *nodes.FuncNode:
@@ -130,7 +130,7 @@ func GeneratePatches(listenerFunc func(listener events.EventListenerFunc, this j
 			newConverted := new.(*nodes.HTMLNode)
 			if typedNode.Tag != newConverted.Tag {
 				// If the tags are different, this is not a diff, this is a replace
-				patches = append(patches, newPatchReplace(listenerFunc, prevDOMNode, prev, old, new))
+				patches = append(patches, newPatchReplace(listenerFunc, prevDOMNode, *indexInPrevDOMNode, prev, old, new))
 				currentStyles = append(currentStyles, newConverted.Styles...)
 			} else {
 				patches = append(patches, newPatchHTML(listenerFunc, typedNode, new.(*nodes.HTMLNode)))
