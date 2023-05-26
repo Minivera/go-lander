@@ -177,11 +177,18 @@ func (n *HTMLNode) ToString() string {
 		count += 1
 	}
 
+	html := fmt.Sprintf("<%s ", n.Tag)
+	if n.DomID != "" {
+		html += fmt.Sprintf("id=\"%s\" ", n.DomID)
+	}
+
+	if len(n.Classes) > 0 || n.ActiveClass != "" {
+		html += fmt.Sprintf("class=\"%s\" ", strings.Join(append(n.Classes, n.ActiveClass), " "))
+	}
+
 	return fmt.Sprintf(
-		`<%s id="%s" class="%s"%s>%s</%s>`,
-		n.Tag,
-		n.DomID,
-		strings.Join(append(n.Classes, n.ActiveClass), " "),
+		"%s%s>%s</%s>",
+		html,
 		strings.Join(attributesString, " "),
 		content,
 		n.Tag,

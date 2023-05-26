@@ -1114,6 +1114,86 @@ routes appear before first level routes as they might match against sub-routes, 
 
 See more in the [routing example](./example/router/main.go).
 
+
+### Head tags management (Helmet)
+
+Managing the head of the document is a common pattern in JavaScript when in-app routing is introduced. To provide a 
+good routing story to developers, we have built an experiment allowing some basic manipulation of the `head` tag of 
+the document directly from GO-lander's tree.
+
+To get started, wrap your entire application inside a `helmer.Provider` component. This provider will update the 
+document's head on every render. The experiment does not check if updating the head is necessary at the moment and 
+will always update when the tree rerenders. 
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/minivera/go-lander"
+	"github.com/minivera/go-lander/experimental/helmet"
+	"github.com/minivera/go-lander/nodes"
+)
+
+func main() {
+	c := make(chan bool)
+
+	_, err := lander.RenderInto(
+		lander.Component(helmet.Provider, nodes.Props{}, nodes.Children{
+			lander.Component(yourApp, nodes.Props{}, nodes.Children{}),
+		}), "#app")
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	<-c
+}
+```
+
+Your application can now provide new `head` tags, such as `title` as HTML nodes directly in the tree. To do so, use 
+the provided `helmer.Head` component. Any HTML children passed to this component will be evaluated at render time, 
+if the node's tag is one of `title`, `meta`, `link`, `script`, `noscript`, or `style`, it will be saved internally 
+to be added to the head at the end of the render cycle.
+
+```go
+package main
+
+import "github.com/minivera/go-lander/experimental/router"
+
+func someApp(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
+	return lander.Component(helmet.Head, router.RouteProps{}, nodes.Children{
+		lander.Html("title", nodes.Attributes{}, nodes.Children{
+			lander.Text("Some title"),
+		}),
+		lander.Html("script", nodes.Attributes{}, nodes.Children{
+			lander.Text("(function() { alert('test'); })();"),
+		}),
+		lander.Html("style", nodes.Attributes{}, nodes.Children{
+			lander.Text("* { color: red; }"),
+		}),
+    }),
+}
+```
+
+All tags will be rendered and updated when the tree updates like you would expect with a reactive library like 
+GO-lander. The `title` tag is unique however as only one tag can exist in a page. `Helmet` prioritizes the last tag 
+seen in the tree, given a walk from the "top" of your app's tree to the "bottom". For example:
+
+```
+# Titles are in order of priority, if 1 is removed, 2 will be selected and so on.
+SomeApp
+| Head with title = "4"
+| div
+| | Head with title = "3"
+| div
+| | div
+| | | Head with title = "2"
+| Head with title = "1" <- This will be the final title
+```
+
+See more in the [helmet example](./example/routerWithHelmet/main.go).
+
 ## Acknowledgements
 
 Lander would not have been possible without the massive work done by the contributors of these libraries:
