@@ -25,7 +25,7 @@ const (
 // Node is a generic interface for a Node in the virtual DOM tree. All nodes should implement this
 // interface through the baseNode concrete struct.
 type Node interface {
-	// ToString returns the node's content as valid HTML for rendering on teh server side. Not used
+	// ToString returns the node's content as valid HTML for rendering on the server side. Not used
 	// at the moment.
 	ToString() string
 
