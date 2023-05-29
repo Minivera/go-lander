@@ -1,4 +1,7 @@
 # GO-Lander
+[![Language: Go](https://img.shields.io/badge/Language-Go-blue.svg)](https://golang.org/)
+[![Go Report Card](https://goreportcard.com/badge/github.com/minivera/go-lander)](https://goreportcard.com/report/github.com/minivera/go-lander)
+[![Go Reference](https://pkg.go.dev/badge/github.com/minivera/go-lander.svg)](https://pkg.go.dev/github.com/minivera/go-lander)
 
 GO-Lander is an experimental library to help you build frontend applications with the power of Golang and Web Assembly
 (WASM). It is heavily inspired by JavaScript frontend libraries such as React and aims to provide the smallest
