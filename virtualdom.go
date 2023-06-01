@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"syscall/js"
 
 	"github.com/tdewolff/minify/v2"
 	"github.com/tdewolff/minify/v2/css"
@@ -14,6 +13,7 @@ import (
 	"github.com/minivera/go-lander/context"
 	"github.com/minivera/go-lander/diffing"
 	"github.com/minivera/go-lander/events"
+	js "github.com/minivera/go-lander/go-wasm-dom"
 	"github.com/minivera/go-lander/internal"
 	"github.com/minivera/go-lander/nodes"
 )

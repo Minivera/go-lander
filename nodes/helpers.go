@@ -5,8 +5,9 @@ package nodes
 import (
 	"fmt"
 	"math/rand"
-	"syscall/js"
 	"time"
+
+	js "github.com/minivera/go-lander/go-wasm-dom"
 
 	lEvents "github.com/minivera/go-lander/events"
 )

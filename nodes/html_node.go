@@ -3,7 +3,8 @@ package nodes
 import (
 	"fmt"
 	"strings"
-	"syscall/js"
+
+	js "github.com/minivera/go-lander/go-wasm-dom"
 
 	"github.com/minivera/go-lander/events"
 )

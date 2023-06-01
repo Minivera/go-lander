@@ -2,7 +2,8 @@ package helmet
 
 import (
 	"fmt"
-	"syscall/js"
+
+	js "github.com/minivera/go-lander/go-wasm-dom"
 
 	"github.com/minivera/go-lander/context"
 	"github.com/minivera/go-lander/nodes"

@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	"syscall/js"
 	"time"
 
 	"github.com/minivera/go-lander"
 	"github.com/minivera/go-lander/context"
 	"github.com/minivera/go-lander/events"
+	js "github.com/minivera/go-lander/go-wasm-dom"
 	"github.com/minivera/go-lander/nodes"
 )
 

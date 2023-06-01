@@ -1,4 +1,4 @@
-# GO-Lander
+# Lander
 [![Language: Go](https://img.shields.io/badge/Language-Go-blue.svg)](https://golang.org/)
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/minivera/go-lander)
 [![Go Report Card](https://goreportcard.com/badge/github.com/minivera/go-lander)](https://goreportcard.com/report/github.com/minivera/go-lander)
@@ -6,13 +6,13 @@
 ![GitHub](https://img.shields.io/github/license/minivera/go-lander)
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/minivera/go-lander)
 
-GO-Lander is an experimental library to help you build frontend applications with the power of Golang and Web Assembly
+Lander is an experimental library to help you build frontend applications with the power of Golang and Web Assembly
 (WASM). It is heavily inspired by JavaScript frontend libraries such as React and aims to provide the smallest
 footprint possible.
 
 ---
 
-**GO-Lander is _very_ unstable and not tested. If you decide to use it in a production application, please be aware
+**Lander is _very_ unstable and not tested. If you decide to use it in a production application, please be aware
 that the API might change as we work on it. The lack of tests also means that there are likely undetected bugs in
 the diffing and mounting algorithms, which could cause issues in your apps. Please check the [example](./example)
 directory to see what kind of behavior we currently support.**
@@ -21,7 +21,7 @@ directory to see what kind of behavior we currently support.**
 
 ## Why another WASM frontend framework?
 
-GO-Lander was built as a passion project and a way to understand the Golang WASM implementation. It started as a clone
+Lander was built as a passion project and a way to understand the Golang WASM implementation. It started as a clone
 of [Vugu](https://github.com/vugu/vugu), with the goal of implementing an API closer to React's and experiment with the
 virtual DOM, alongside [lander](https://github.com/Minivera/lander).
 
@@ -29,9 +29,9 @@ It evolved in a genuine attempt to offer a different experience from the existin
 its experimental and passion project nature. Our goal is not to become the next replacement for React, but rather to
 offer something people can experiment with.
 
-## Why use GO-Lander
+## Why use Lander
 
-You _shouldn't_, it's far too unstable and buggy in its current state. But if you decide to use GO-Lander, the
+You _shouldn't_, it's far too unstable and buggy in its current state. But if you decide to use Lander, the
 library has a few things to offer:
 
 1. **Lightweight**. It is intended to have the lightest footprint possible in your application, the APIs
@@ -48,26 +48,26 @@ library has a few things to offer:
    you'd like. None of the "advanced/experimental" features such as our router use internal logic, they are all
    build with the same public APIs.
 
-### GO-lander and Vugu
+### Lander and Vugu
 
-[Vugu](https://github.com/vugu/vugu) is a lot more production ready and mature than GO-Lander. Vugu is a lot closer
+[Vugu](https://github.com/vugu/vugu) is a lot more production ready and mature than Lander. Vugu is a lot closer
 to Vue.js, it expects you to write `.vugu` files and your application logic in an HTML `script` tag. If you enjoy the
-Vue.js experience, Vugu is likely to be much more usable. Since GO-lander is closer to vecty in terms of its
+Vue.js experience, Vugu is likely to be much more usable. Since Lander is closer to vecty in terms of its
 developer experience, we recommend looking
 at [its own comparison to Vugu](https://github.com/hexops/vecty#vecty-vs-vugu) to make your decision.
 
-### GO-lander and vecty
+### Lander and vecty
 
-[Vecty](https://github.com/hexops/vecty) is closer to how GO-lander was designed with some key differences. Vecty
-expects components to always be struct pointers with a `Render` method. GO-Lander allows you to choose how you want
+[Vecty](https://github.com/hexops/vecty) is closer to how Lander was designed with some key differences. Vecty
+expects components to always be struct pointers with a `Render` method. Lander allows you to choose how you want
 to structure your app, we store components as functions, regardless of whether they are methods of a struct or not.
 Vecty
-also differs from GO-lander in the algorithm it uses for diffing. Vecty uses a high-performance algorithm similar to
+also differs from Lander in the algorithm it uses for diffing. Vecty uses a high-performance algorithm similar to
 the virtual DOM pattern where Go-lander uses a pure virtual DOM tree with a separate diffing and patching process.
 
 ## Getting started
 
-Install the latest version of GO-lander to get started.
+Install the latest version of Lander to get started.
 
 ```bash
 go get github.com/Minivera/go-lander@latest
@@ -106,17 +106,17 @@ func main() {
 ```
 
 For a web assembly application to stay alive after its first execution, we need to create a channel and wait on it.
-This ensures our application stays alive until the page is refreshed, which allows GO-lander to rerender the app on
+This ensures our application stays alive until the page is refreshed, which allows Lander to rerender the app on
 demand.
 
 We then call the `RenderInto` function using a component called `helloWorld` on the `#app` DOM node, which we'll
-create later. GO-lander apps need to start with a component, which can then render any structure you want.
+create later. Lander apps need to start with a component, which can then render any structure you want.
 
 In this case, the `helloWorld` component is a function that renders a `h1` tag with the text "Hello, World!" and
 some styling. Any styles you add to an HTML node with `Style` will be added to a global stylesheet and updated on
 every subsequent render.
 
-GO-lander does not provide any utilities to compile your application to Web Assembly, so we'll also need an `index.
+Lander does not provide any utilities to compile your application to Web Assembly, so we'll also need an `index.
 html` file and the JavaScript file provided by your installation of Go. You may also use [`wasmserve`]
 (https://github.com/hajimehoshi/wasmserve) to simplify this process.
 
@@ -144,7 +144,7 @@ look like this.
 ```
 
 Then, copy the official Go JavaScript glue file to your current directory, this is needed to bridge the gap between
-GO-lander and the JavaScript DOM environment.
+Lander and the JavaScript DOM environment.
 
 ```bash
 cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" .
@@ -186,7 +186,7 @@ mage runExampleViewer
 
 ## Detailed documentation
 
-Any GO-lander starts with the lander environment, which is created when you render an application into a DOM node.
+Any Lander starts with the lander environment, which is created when you render an application into a DOM node.
 This environment takes care of the entire render and diffing process, but you are responsible for keeping it alive
 and handling any updates.
 
@@ -195,7 +195,7 @@ env, err := lander.RenderInto(someComponent, 'Some DOM node selector')
 ```
 
 When this function is called, lander will query for a DOM node in the document using the provided selector and mount
-your component into it. `RenderInto` can only render components, every GO-lander app must start with a component.
+your component into it. `RenderInto` can only render components, every Lander app must start with a component.
 
 Once properly mounted, the lander environment is returned. If any error happened (such as the DOM node not being
 found or the library running in a server environment), an error will be returned alongside a `nil` environment.
@@ -221,7 +221,7 @@ To write the HTML structure of your app, use one of the three functions provided
 - **lander.Text(text)** will create a text node, which can be used to add text inside any node.
 
 HTML nodes take a `nodes.Attributes` map as their attributes parameter, which can include any valid HTML attribute
-or property for the element. GO-lander will extract the attributes and assign them using the following rules:
+or property for the element. Lander will extract the attributes and assign them using the following rules:
 
 ```go
 package main
@@ -280,7 +280,7 @@ lander.
 
 ### Components
 
-Components are the core of GO-lander's component pattern. In their simplest of forms, a component is a function that,
+Components are the core of Lander's component pattern. In their simplest of forms, a component is a function that,
 given specific inputs, returns a single lander node.
 
 Every component's signature must match the signature of `nodes.FunctionComponent`, namely:
@@ -291,10 +291,10 @@ type FunctionComponent[T any] func (ctx context.Context, props T, children nodes
 
 The `context.Context` is covered in a later section. The component's `Props` are, unlike HTML attributes, a generic
 type that can be assigned any type. The `nodes.Props` type if provided as a utility for components that take no 
-props. The properties are never converted by GO-lander, they will be passed along to the function. When GO-lander 
+props. The properties are never converted by Lander, they will be passed along to the function. When Lander 
 renders the tree, it calls each component in the tree to generate its result (called a render).
 
-You are responsible for writing your components in any way you want, GO-lander only provides you with a mean to
+You are responsible for writing your components in any way you want, Lander only provides you with a mean to
 return a child and have it appear in the updated DOM tree.
 
 As an example, let's explore the "Hello, World!" example with some properties.
@@ -343,10 +343,10 @@ func main() {
 
 When creating a component node through `lander.Component`, the `props` passed will be given to the component's
 function, as will the children. If the component returns another component as part of its rendered node's descendant,
-that component will in-turn be rendered until all components in the tree have been rendered. This is the GO-lander's 
+that component will in-turn be rendered until all components in the tree have been rendered. This is the Lander's 
 render cycle in a nutshell.
 
-GO-lander does not provide any type safety for props, they are passed to GO-lander's internal logic without any type 
+Lander does not provide any type safety for props, they are passed to Lander's internal logic without any type 
 information. You are responsible for checking the types of the values you receive, and to `panic` if the types are 
 not correct or a required prop is missing.
 
@@ -358,7 +358,7 @@ will then be inserted into the DOM.
 
 Returning only a single child from a component may not always be practical. If a component renders a slice of
 children, for example, you would need to wrap that slice in an HTML node such as a `div` to only return a single
-child. GO-lander provides a final type of node to solve this problem, the `lander.Fragment` node.
+child. Lander provides a final type of node to solve this problem, the `lander.Fragment` node.
 
 A fragment takes a slice of nodes as its children and will render them as if they were a direct child of the
 closest HTML node. Fragments are also very useful when you want to assign a slice of children to a node that already
@@ -408,7 +408,7 @@ func main() {
 
 ### Keeping state
 
-Since GO-lander does not make any assumptions in how you want to structure your app, it also does not provide any
+Since Lander does not make any assumptions in how you want to structure your app, it also does not provide any
 in-depth state management solutions built-in. Rather, you can use the native features of Go to store state for your
 application with global variables or structs for example.
 
@@ -501,7 +501,7 @@ func main() {
 }
 ```
 
-In this example, the `loginForm` `struct` stored our two state value, and a pointer to the GO-lander environment,
+In this example, the `loginForm` `struct` stored our two state value, and a pointer to the Lander environment,
 which allows us to trigger an update when the form value changes. Since the form is created in the `main` function,
 it will be alive and keep our state for the entire lifecycle of the application.
 
@@ -570,7 +570,7 @@ func main() {
 
 ### Context
 
-Every component function takes a GO-lander context as its first parameter. This context is similar in concept to
+Every component function takes a Lander context as its first parameter. This context is similar in concept to
 Golang's own [context](https://pkg.go.dev/context) and
 React's [context](https://react.dev/learn/passing-data-deeply-with-context).
 This context carries over data that can be accessed anywhere in the tree, it allows you to define global data that
@@ -672,10 +672,10 @@ rerendered when the theme changes. This is the main difference between using con
 
 #### Limitations
 
-There are a few key differences between the GO-lander context and both of its inspirations. First, GO-lander's
+There are a few key differences between the Lander context and both of its inspirations. First, Lander's
 context does not provide any cancellation or timeout mechanisms like Golang's context. We have plans to support
 render cancellation through the context to allow component to stop the diffing process from checking their result,
-but this is not yet supported. Second, GO-lander's context is a single struct that is carried over the entire tree. It
+but this is not yet supported. Second, Lander's context is a single struct that is carried over the entire tree. It
 is only defined once at the start of the rendering process. This differs from React's own context, as described below.
 
 ```
@@ -691,12 +691,12 @@ App
 When a context provider redefines the context, only the descendants of that component see the new value. Other
 components in the tree will see the previous value in the context.
 
-GO-lander's context is global to the tree and is a pointer, thus any change to a context value in the tree will
+Lander's context is global to the tree and is a pointer, thus any change to a context value in the tree will
 affect all components, regardless of their location. The tree is visited in order, so this behavior is predictable.
-Taking the same example as above, but rewriting it in GO-lander, the context would behave as described below.
+Taking the same example as above, but rewriting it in Lander, the context would behave as described below.
 
 ```
-# In GO-lander, the context is a pointer that always points to the same value regardless of positions
+# In Lander, the context is a pointer that always points to the same value regardless of positions
 App
 | Some context provider -> Provides context value "foo"
 | | Some child component with provider -> Consumes context value "foo", Provides context value "bar"
@@ -758,7 +758,7 @@ App
 ```
 
 If you remove `Todo 2`, `Todo 2` will be reused and updated to the values of `Todo 3`, and `Todo 3` will trigger an
-unmount. This is different from other libraries that use a "keyed" approach to lists. GO-lander does not use keys
+unmount. This is different from other libraries that use a "keyed" approach to lists. Lander does not use keys
 and instead rely on node reuse. Let's visualize this:
 
 ```
@@ -776,15 +776,15 @@ App
 ## Experimental features
 
 We have built a few experimental features that bridge the gap between other, more feature-rich, libraries and the
-minimalist approach of GO-lander. They are very experimental (even more than the library itself), and may be subject to
+minimalist approach of Lander. They are very experimental (even more than the library itself), and may be subject to
 change or may break in unexpected ways.
 
 ### Hooks
 
 [React hooks](https://react.dev/reference/react) have changed the way we build frontend apps, and like many other
 frontend trying to compete in the
-landscape dominated by React, we have also built an alternative to hooks inside GO-lander. This experiment still
-follows the core principles of GO-lander, but given the nature of the hooks api, it required some hidden magic to
+landscape dominated by React, we have also built an alternative to hooks inside Lander. This experiment still
+follows the core principles of Lander, but given the nature of the hooks api, it required some hidden magic to
 properly work.
 
 We have implemented two of the common hooks in React, `useState` and `useEffect`. Both use an internal version of
@@ -972,7 +972,7 @@ will provide the current value of the store and expects a new value. We strongly
 value when setting the state. The app will automatically update once the state has been set.
 
 `Store.Consumer` is a component you can use in your app to inject your state into another component. It takes a
-`Render` prop, which should provides the current value of the store and must return a valid GO-lander child, like
+`Render` prop, which should provides the current value of the store and must return a valid Lander child, like
 any other component.
 
 ```go
@@ -1125,7 +1125,7 @@ See more in the [routing example](./example/router/main.go).
 
 Managing the head of the document is a common pattern in JavaScript when in-app routing is introduced. To provide a 
 good routing story to developers, we have built an experiment allowing some basic manipulation of the `head` tag of 
-the document directly from GO-lander's tree.
+the document directly from Lander's tree.
 
 To get started, wrap your entire application inside a `helmer.Provider` component. This provider will update the 
 document's head on every render. The experiment does not check if updating the head is necessary at the moment and 
@@ -1183,7 +1183,7 @@ func someApp(_ context.Context, _ nodes.Props, _ nodes.Children) nodes.Child {
 ```
 
 All tags will be rendered and updated when the tree updates like you would expect with a reactive library like 
-GO-lander. The `title` tag is unique however as only one tag can exist in a page. `Helmet` prioritizes the last tag 
+Lander. The `title` tag is unique however as only one tag can exist in a page. `Helmet` prioritizes the last tag 
 seen in the tree, given a walk from the "top" of your app's tree to the "bottom". For example:
 
 ```

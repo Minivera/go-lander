@@ -2,9 +2,9 @@ package router
 
 import (
 	"fmt"
-	"syscall/js"
 
 	"github.com/minivera/go-lander/context"
+	js "github.com/minivera/go-lander/go-wasm-dom"
 	"github.com/minivera/go-lander/nodes"
 )
 

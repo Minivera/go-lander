@@ -3,7 +3,7 @@
 package events
 
 import (
-	"syscall/js"
+	js "github.com/minivera/go-lander/go-wasm-dom"
 )
 
 // EventListenerFunc is the type definition for a DOM event listener in javascript. Use this type

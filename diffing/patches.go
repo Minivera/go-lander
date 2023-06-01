@@ -4,10 +4,10 @@ package diffing
 
 import (
 	"strings"
-	"syscall/js"
 
 	"github.com/minivera/go-lander/context"
 	"github.com/minivera/go-lander/events"
+	js "github.com/minivera/go-lander/go-wasm-dom"
 	"github.com/minivera/go-lander/internal"
 	"github.com/minivera/go-lander/nodes"
 )

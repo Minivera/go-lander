@@ -2,7 +2,8 @@ package internal
 
 import (
 	"fmt"
-	"syscall/js"
+
+	js "github.com/minivera/go-lander/go-wasm-dom"
 )
 
 // IsDebug sets if the app is in debug mode, which will allow debug logging. Set to true by adding

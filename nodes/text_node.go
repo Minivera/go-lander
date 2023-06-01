@@ -1,7 +1,7 @@
 package nodes
 
 import (
-	"syscall/js"
+	js "github.com/minivera/go-lander/go-wasm-dom"
 )
 
 // TextNode is an implementation of the Node interface which implements the logic to handle
