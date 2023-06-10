@@ -22,6 +22,7 @@ const (
 	valueTrue
 	valueFalse
 	valueGlobal
+	valueDocument
 
 	objectConstructor
 	arrayConstructor
@@ -42,7 +43,7 @@ type Value struct {
 
 	tag        string
 	attributes map[string]string
-	properties map[string]Value
+	properties map[string]*Value
 	internals  map[string]any
 	listeners  map[string]Func
 }
@@ -91,6 +92,15 @@ func makeFloat(x float64) Value {
 	}
 }
 
+func makeString(x string) Value {
+	return Value{
+		referencedType: stringType,
+		internals: map[string]any{
+			"stringValue": x,
+		},
+	}
+}
+
 // ValueOf returns x as a JavaScript value:
 //
 //	| Go                     | JavaScript             |
@@ -110,8 +120,12 @@ func ValueOf(x any) Value {
 		switch x := x.(type) {
 		case Value:
 			return x
+		case *Value:
+			return *x
 		case Func:
-			return x.Value
+			return x.internalValue
+		case *Func:
+			return x.internalValue
 		case nil:
 			return Null()
 		case bool:
@@ -153,28 +167,25 @@ func ValueOf(x any) Value {
 		case float64:
 			return makeFloat(x)
 		case string:
-			return Value{
-				referencedType: stringType,
-				internals: map[string]any{
-					"stringValue": x,
-				},
-			}
+			return makeString(x)
 		case []any:
 			a := Value{
 				referencedType: arrayConstructor,
-				properties:     map[string]Value{},
+				properties:     map[string]*Value{},
 			}
 			for i, s := range x {
-				a.properties[fmt.Sprintf("%d", i)] = ValueOf(s)
+				val := ValueOf(s)
+				a.properties[fmt.Sprintf("%d", i)] = &val
 			}
 			return a
 		case map[string]any:
 			o := Value{
 				referencedType: objectConstructor,
-				properties:     map[string]Value{},
+				properties:     map[string]*Value{},
 			}
 			for k, v := range x {
-				o.properties[fmt.Sprintf("%v", k)] = ValueOf(v)
+				val := ValueOf(v)
+				o.properties[fmt.Sprintf("%v", k)] = &val
 			}
 			return o
 		default:
@@ -208,17 +219,21 @@ func goValueOf(x Value) any {
 				if err != nil {
 					t.Fatal("Conversion of JS array to Go slice, indexes were not numeric")
 				}
-				s[index] = goValueOf(v)
+				s[index] = goValueOf(*v)
 			}
 			return s
 		case objectConstructor:
 			s := make(map[string]any, len(x.properties))
 			for k, v := range x.properties {
-				s[k] = goValueOf(v)
+				s[k] = goValueOf(*v)
 			}
 		default:
 			t.Fatal("Conversion of un-convertable type to Go type, no-op")
 		}
 	}
 	return Value{Value: realJs.ValueOf(x)}
+}
+
+func valuePtr(v Value) *Value {
+	return &v
 }

@@ -20,10 +20,6 @@ import (
 
 var document js.Value
 
-func init() {
-	document = js.Global().Get("document")
-}
-
 // DomEnvironment is the lander DOM environment that stores the necessary information to allow mounting
 // and rendering a lander app. Keep this environment in the main method or in global memory to avoid any
 // memory loss.
@@ -44,6 +40,7 @@ type DomEnvironment struct {
 // This function is thread safe and will not allow any updates while the first mount is in progress. Event
 // listeners or effects triggered during the mount process will have to wait.
 func RenderInto(rootNode *nodes.FuncNode, root string) (*DomEnvironment, error) {
+	document = js.Global().Get("document")
 	env := &DomEnvironment{
 		root: root,
 		tree: rootNode,

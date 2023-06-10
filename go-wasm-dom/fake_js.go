@@ -3,7 +3,9 @@
 package go_wasm_dom
 
 import (
+	"fmt"
 	"strconv"
+	"strings"
 	realJs "syscall/js"
 )
 
@@ -55,7 +57,7 @@ func (v Value) Equal(w Value) bool {
 		case arrayConstructor:
 			return w.referencedType == arrayConstructor && compareObjectValues(v, w)
 		case domNode:
-			return w.referencedType == domNode && compareObjectValues(v, w)
+			return w.referencedType == domNode && compareDOMValues(v, w)
 		case functionType:
 			// TODO
 			return w.referencedType == functionType
@@ -120,7 +122,8 @@ func (v Value) Type() realJs.Type {
 // It panics if v is not a JavaScript object.
 func (v Value) Get(p string) Value {
 	if isInFakeMode {
-		if v.properties == nil || (v.referencedType != objectConstructor && v.referencedType != domNode) {
+		if v.properties == nil || (v.referencedType != objectConstructor && v.referencedType != domNode &&
+			v.referencedType != valueDocument && v.referencedType != valueGlobal) {
 			t.Fatal("Get: Value is not a JavaScript Object")
 		}
 
@@ -137,11 +140,20 @@ func (v Value) Get(p string) Value {
 // It panics if v is not a JavaScript object.
 func (v Value) Set(p string, x any) {
 	if isInFakeMode {
-		if v.properties == nil || (v.referencedType != objectConstructor && v.referencedType != domNode) {
+		if v.properties == nil || (v.referencedType != objectConstructor && v.referencedType != domNode &&
+			v.referencedType != valueDocument && v.referencedType != valueGlobal) {
 			t.Fatal("Set: Value is not a JavaScript Object")
 		}
 
-		v.properties[p] = ValueOf(x)
+		val := ValueOf(x)
+		v.properties[p] = &val
+		if p == "id" {
+			// Assign the element to the nodes list per ID if needed
+			currentScreen.nodesPerID[v.properties[p].String()] = append(
+				currentScreen.nodesPerID[v.properties[p].String()],
+				v.id,
+			)
+		}
 		return
 	}
 	v.Value.Set(p, convertArg(x))
@@ -151,7 +163,8 @@ func (v Value) Set(p string, x any) {
 // It panics if v is not a JavaScript object.
 func (v Value) Delete(p string) {
 	if isInFakeMode {
-		if v.properties == nil || (v.referencedType != objectConstructor && v.referencedType != domNode) {
+		if v.properties == nil || (v.referencedType != objectConstructor && v.referencedType != domNode &&
+			v.referencedType != valueDocument && v.referencedType != valueGlobal) {
 			t.Fatal("Delete: Value is not a JavaScript Object")
 		}
 
@@ -186,7 +199,8 @@ func (v Value) SetIndex(i int, x any) {
 			t.Fatal("SetIndex: Value is not a JavaScript Array")
 		}
 
-		v.properties[strconv.Itoa(i)] = ValueOf(x)
+		val := ValueOf(x)
+		v.properties[strconv.Itoa(i)] = &val
 		return
 	}
 	v.Value.SetIndex(i, convertArg(x))
@@ -212,32 +226,17 @@ func (v Value) Length() int {
 // The arguments get mapped to JavaScript values according to the ValueOf function.
 func (v Value) Call(m string, args ...any) Value {
 	if isInFakeMode {
-		switch m {
-		case "createElement", "createElementNS":
-			return createElement(args...)
-		// TODO: Implement the other methods from the Node API https://developer.mozilla.org/en-US/docs/Web/API/Node
-		case "appendChild":
-			return appendChild(v, args...)
-		case "insertBefore":
-			return insertBefore(v, args...)
-		case "removeChild":
-			return removeChild(v, args...)
-		case "replaceChild":
-			return replaceChild(v, args...)
-		case "hasAttribute":
-			return hasAttribute(v, args...)
-		case "getAttribute":
-			return getAttribute(v, args...)
-		case "setAttribute":
-			return setAttribute(v, args...)
-		case "querySelector":
-			// TODO
-		case "querySelectorAll":
-			// TODO
-		default:
-			// Any other method is not supported at the moment
-			return Undefined()
+		method, ok := v.properties["m"]
+		if !ok {
+			t.Fatalf("Call: Object doesn't have method %s, it might not be implemented yet", m)
 		}
+
+		args := convertArgs(args)
+		valueArgs := make([]Value, len(args))
+		for i, a := range args {
+			valueArgs[i] = ValueOf(a)
+		}
+		return method.Invoke(append([]Value{v}, valueArgs...))
 	}
 	return Value{Value: v.Value.Call(m, convertArgs(args)...)}
 }
@@ -246,6 +245,23 @@ func (v Value) Call(m string, args ...any) Value {
 // It panics if v is not a JavaScript function.
 // The arguments get mapped to JavaScript values according to the ValueOf function.
 func (v Value) Invoke(args ...any) Value {
+	if isInFakeMode {
+		if v.referencedType != functionType {
+			t.Fatal("Invoke: Value is not a JavaScript function")
+		}
+
+		args := convertArgs(args)
+		valueArgs := make([]Value, len(args)-1)
+		thisArg := Value{}
+		for i, a := range args {
+			if i == 0 {
+				thisArg = ValueOf(a)
+			}
+			valueArgs[i] = ValueOf(a)
+		}
+
+		return ValueOf(v.internals["fn"].(func(this Value, args []Value) any)(thisArg, valueArgs))
+	}
 	return Value{Value: v.Value.Invoke(convertArgs(args)...)}
 }
 
@@ -253,24 +269,56 @@ func (v Value) Invoke(args ...any) Value {
 // It panics if v is not a JavaScript function.
 // The arguments get mapped to JavaScript values according to the ValueOf function.
 func (v Value) New(args ...any) Value {
+	if isInFakeMode {
+		if v.referencedType != functionType {
+			t.Fatal("New: Value is not a JavaScript function")
+		}
+
+		args := convertArgs(args)
+		valueArgs := make([]Value, len(args))
+		for i, a := range args {
+			valueArgs[i] = ValueOf(a)
+		}
+
+		return ValueOf(v.internals["fn"].(func(this Value, args []Value) any)(Value{}, valueArgs))
+	}
 	return Value{Value: v.Value.New(convertArgs(args)...)}
 }
 
 // Float returns the value v as a float64.
 // It panics if v is not a JavaScript number.
 func (v Value) Float() float64 {
+	if isInFakeMode {
+		if v.referencedType != numberType && v.referencedType != valueNaN && v.referencedType != valueZero {
+			t.Fatal("Float: Value is not a JavaScript number")
+		}
+
+		return goValueOf(v).(float64)
+	}
 	return v.Value.Float()
 }
 
 // Int returns the value v truncated to an int.
 // It panics if v is not a JavaScript number.
 func (v Value) Int() int {
+	if isInFakeMode {
+		return int(v.Float())
+	}
 	return v.Value.Int()
 }
 
 // Bool returns the value v as a bool.
 // It panics if v is not a JavaScript boolean.
 func (v Value) Bool() bool {
+	if isInFakeMode {
+		if v.referencedType == valueTrue {
+			return true
+		} else if v.referencedType == valueFalse {
+			return false
+		} else {
+			t.Fatal("Bool: Value is not a JavaScript boolean")
+		}
+	}
 	return v.Value.Bool()
 }
 
@@ -278,6 +326,14 @@ func (v Value) Bool() bool {
 // false, 0, "", null, undefined, and NaN are "falsy", and everything else is
 // "truthy". See https://developer.mozilla.org/en-US/docs/Glossary/Truthy.
 func (v Value) Truthy() bool {
+	if isInFakeMode {
+		return !(v.referencedType == valueFalse ||
+			v.referencedType == valueZero ||
+			v.String() == "" ||
+			v.referencedType == valueNull ||
+			v.referencedType == valueUndefined ||
+			v.referencedType == valueNaN)
+	}
 	return v.Value.Truthy()
 }
 
@@ -286,10 +342,52 @@ func (v Value) Truthy() bool {
 // it does not panic if v's Type is not TypeString. Instead, it returns a string of the form "<T>"
 // or "<T: V>" where T is v's type and V is a string representation of v's value.
 func (v Value) String() string {
+	if isInFakeMode {
+		switch v.referencedType {
+		case valueUndefined:
+			return "undefined"
+		case valueNull:
+			return "null"
+		case valueTrue:
+			return "true"
+		case valueFalse:
+			return "false"
+		case valueZero:
+			return "0"
+		case valueNaN:
+			return "NaN"
+		case numberType:
+			return fmt.Sprintf("%f", v.internals["floatValue"].(float64))
+		case stringType:
+			return v.internals["stringValue"].(string)
+		case arrayConstructor:
+			content := make([]string, len(v.properties))
+			for k, v := range v.properties {
+				index, err := strconv.Atoi(k)
+				if err != nil {
+					t.Fatal("Conversion of JS array to Go slice, indexes were not numeric")
+				}
+				content[index] = v.String()
+			}
+			return strings.Join(content, ",")
+		case objectConstructor:
+			return "[object Object]"
+		case functionType:
+			// TODO: This would normally pring the content of the string
+			return "function() {}"
+		default:
+			t.Fatal("Conversion of un-convertable type to Go type, no-op")
+		}
+	}
 	return v.Value.String()
 }
 
 // InstanceOf reports whether v is an instance of type t according to JavaScript's instanceof operator.
 func (v Value) InstanceOf(t Value) bool {
+	if isInFakeMode {
+		prototypeA, okA := v.internals["prototype"]
+		prototypeB, okB := t.internals["prototype"]
+		return okA && okB && prototypeA == prototypeB
+	}
 	return v.Value.InstanceOf(t.Value)
 }

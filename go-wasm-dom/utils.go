@@ -11,7 +11,7 @@ func compareObjectValues(a Value, b Value) bool {
 			return false
 		}
 
-		if !v.Equal(otherVal) {
+		if !v.Equal(*otherVal) {
 			return false
 		}
 	}
